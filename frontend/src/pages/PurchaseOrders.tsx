@@ -703,11 +703,12 @@ function CreatePO({
         setErr('Drop-ship requires recipient name, complete address, and cellphone number.');
         return;
       }
-      if (!proofFile) {
-        setErr('Drop-ship requires an attached proof of payment.');
+      // Proof of payment is required only when NOT paying with Mana (Mana is pre-paid).
+      if (paymentMethod !== 'MANA' && !proofFile) {
+        setErr('Drop-ship requires a proof of payment, or pay with Mana.');
         return;
       }
-      if (proofFile.size > 3 * 1024 * 1024) {
+      if (proofFile && proofFile.size > 3 * 1024 * 1024) {
         setErr('Proof of payment is too large (max 3 MB).');
         return;
       }
@@ -796,7 +797,9 @@ function CreatePO({
                 <input className="input" value={recipient.landmark} onChange={(e) => setRecipient({ ...recipient, landmark: e.target.value })} />
               </div>
               <div className="sm:col-span-2">
-                <label className="label">Proof of Payment (image/PDF) *</label>
+                <label className="label">
+                  Proof of Payment (image/PDF) {paymentMethod === 'MANA' ? '(optional — paying via Mana)' : '*'}
+                </label>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp,application/pdf"

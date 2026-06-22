@@ -110,7 +110,8 @@ poRouter.post(
     const srpById = new Map(products.map((p) => [p.id, p.srp]));
 
     // Drop-ship orders ship directly to an end recipient, so the delivery
-    // details AND proof of payment are required before the order can proceed.
+    // details are always required. Proof of payment is required only when NOT
+    // paying with Mana — Mana is already pre-paid, so no proof is needed.
     const isDropship = body.distributionType === 'DROP_SHIP';
     let proofData: string | null = null;
     if (isDropship) {
@@ -119,15 +120,17 @@ poRouter.post(
           'Drop-ship orders require recipient name, complete address, and cellphone number'
         );
       }
-      if (!body.proofOfPayment) {
-        throw badRequest('Drop-ship orders require an attached proof of payment');
+      if (body.paymentMethod !== 'MANA' && !body.proofOfPayment) {
+        throw badRequest('Drop-ship orders require an attached proof of payment (or pay with Mana)');
       }
-      if (!ALLOWED_TYPES.includes(body.proofOfPayment.mimeType.toLowerCase())) {
-        throw badRequest('Proof of payment must be an image (PNG/JPG/WEBP) or PDF');
-      }
-      proofData = body.proofOfPayment.dataBase64.replace(/^data:[^;]+;base64,/, '');
-      if (Math.floor((proofData.length * 3) / 4) > MAX_UPLOAD_BYTES) {
-        throw badRequest('Proof of payment is too large (max 3 MB)');
+      if (body.proofOfPayment) {
+        if (!ALLOWED_TYPES.includes(body.proofOfPayment.mimeType.toLowerCase())) {
+          throw badRequest('Proof of payment must be an image (PNG/JPG/WEBP) or PDF');
+        }
+        proofData = body.proofOfPayment.dataBase64.replace(/^data:[^;]+;base64,/, '');
+        if (Math.floor((proofData.length * 3) / 4) > MAX_UPLOAD_BYTES) {
+          throw badRequest('Proof of payment is too large (max 3 MB)');
+        }
       }
     }
 
