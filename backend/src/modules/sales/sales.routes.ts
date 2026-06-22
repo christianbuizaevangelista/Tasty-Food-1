@@ -48,8 +48,9 @@ function receiptOf(sale: any, viewerOrgId?: string) {
     total: sale.total,
     savings: Math.round((sale.subtotal - sale.total) * 100) / 100,
     createdAt: sale.createdAt,
-    // Only the seller of the sale may process a refund (and only if any qty remains).
-    canRefund: !!viewerOrgId && sale.sellerOrgId === viewerOrgId && hasRefundable,
+    // Anyone who can see the sale (it's within their scope) may refund it while
+    // quantity remains; the stock is returned to the actual seller's inventory.
+    canRefund: !!viewerOrgId && hasRefundable,
     lines: sale.items.map((i: any) => ({
       id: i.id,
       sku: i.product.sku,
@@ -246,10 +247,8 @@ salesRouter.post(
   '/:id/refund',
   asyncHandler(async (req, res) => {
     const body = refundSchema.parse(req.body);
+    // loadScopedSale already ensures the sale is within the requester's chain.
     const sale = await loadScopedSale(req, req.params.id);
-    if (sale.sellerOrgId !== req.auth!.orgId) {
-      throw forbidden('Only the seller of this sale can process a refund');
-    }
 
     const byId = new Map(sale.items.map((i) => [i.id, i]));
     for (const r of body.items) {
