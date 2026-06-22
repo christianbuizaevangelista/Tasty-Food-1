@@ -34,6 +34,9 @@ export default function POS() {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Org | null>(null);
   const [showList, setShowList] = useState(false);
+  // Manual discount for Others/Walk-in: by percentage or by peso amount.
+  const [discMode, setDiscMode] = useState<'percent' | 'amount'>('percent');
+  const [discValue, setDiscValue] = useState(0);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,12 +56,17 @@ export default function POS() {
   if (error) return <Alert>{error}</Alert>;
   const products = data!.products;
 
-  const discountRate = selected ? selected.discountRate : 0;
   const lines = Object.entries(cart).filter(([, q]) => q > 0);
-  const total = lines.reduce((s, [pid, q]) => {
-    const p = products.find((x) => x.id === pid)!;
-    return s + p.srp * (1 - discountRate) * q;
-  }, 0);
+  const subtotalSRP = lines.reduce((s, [pid, q]) => s + (products.find((x) => x.id === pid)?.srp ?? 0) * q, 0);
+  // Tier customer -> their fixed discount; Others -> manual % or amount.
+  const discountRate = selected
+    ? selected.discountRate
+    : discMode === 'percent'
+    ? Math.min(Math.max(discValue, 0), 100) / 100
+    : subtotalSRP > 0
+    ? Math.min(Math.max(discValue, 0) / subtotalSRP, 1)
+    : 0;
+  const total = Math.round(subtotalSRP * (1 - discountRate) * 100) / 100;
 
   function pick(o: Org) {
     setSelected(o);
@@ -77,12 +85,15 @@ export default function POS() {
       const { data: r } = await api.post('/pos/sales', {
         buyerOrgId: selected?.id, // backend derives the tier discount from this
         customerName: selected ? selected.name : query.trim() || 'Walk-in',
+        // For Others/Walk-in, send the manual discount rate (derived from % or amount).
+        discountRate: selected ? undefined : discountRate,
         items: lines.map(([productId, quantity]) => ({ productId, quantity })),
       });
       setReceipt(r);
       setCart({});
       setQuery('');
       setSelected(null);
+      setDiscValue(0);
     } catch (e) {
       setErr(apiError(e));
     } finally {
@@ -167,16 +178,42 @@ export default function POS() {
           </div>
 
           {/* Auto-detected customer type + discount */}
-          <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs">
-            {selected ? (
-              <span className="text-slate-600">
-                Type: <span className="font-semibold">{TIER[selected.type]?.label ?? selected.type}</span> ·{' '}
-                <span className="font-semibold text-brand-600">{Math.round(selected.discountRate * 100)}% discount</span>
-              </span>
-            ) : (
-              <span className="text-slate-500">Type: <span className="font-semibold">Others / Walk-in</span> · SRP (no discount)</span>
-            )}
-          </div>
+          {selected ? (
+            <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Type: <span className="font-semibold">{TIER[selected.type]?.label ?? selected.type}</span> ·{' '}
+              <span className="font-semibold text-brand-600">{Math.round(selected.discountRate * 100)}% discount</span>
+            </div>
+          ) : (
+            <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              <div className="mb-2">
+                Type: <span className="font-semibold">Others / Walk-in</span> — apply a discount:
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex overflow-hidden rounded-md border border-slate-300">
+                  {(['percent', 'amount'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => { setDiscMode(m); setDiscValue(0); }}
+                      className={`px-2 py-1 text-xs font-semibold ${discMode === m ? 'bg-brand-500 text-white' : 'bg-white text-slate-600'}`}
+                    >
+                      {m === 'percent' ? '%' : '₱'}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  className="input w-28 text-right"
+                  value={discValue || ''}
+                  placeholder={discMode === 'percent' ? '0 %' : '₱ 0'}
+                  onChange={(e) => setDiscValue(Number(e.target.value))}
+                />
+                <span className="text-slate-500">
+                  = {Math.round(discountRate * 100)}% off ({peso(subtotalSRP - total)})
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="mb-3 flex items-center justify-between text-sm">
             <span className="text-slate-500">{lines.length} item(s)</span>
