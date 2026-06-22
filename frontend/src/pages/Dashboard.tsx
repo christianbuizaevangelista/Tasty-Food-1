@@ -1,6 +1,7 @@
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
+  CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
@@ -13,7 +14,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { useFetch } from '../lib/useFetch';
 import { KpiCard, PageHeader, Spinner, Alert } from '../components/ui';
-import { peso, num } from '../lib/format';
+import { peso, num, pct } from '../lib/format';
 import { ROLE_LABEL } from '../lib/nav';
 
 interface DashboardData {
@@ -48,6 +49,13 @@ export default function Dashboard() {
     { name: 'Drop Ship', value: data.charts.byDistributionType.dropShip },
   ];
 
+  // Current month vs last month (last two points of the 6-month trend).
+  const mr = data.charts.monthlyRevenue;
+  const thisMonth = mr[mr.length - 1]?.revenue ?? 0;
+  const lastMonth = mr[mr.length - 2]?.revenue ?? 0;
+  const momDelta = lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : thisMonth > 0 ? 100 : 0;
+  const momUp = thisMonth >= lastMonth;
+
   return (
     <div>
       <PageHeader
@@ -74,14 +82,36 @@ export default function Dashboard() {
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="card lg:col-span-2">
-          <h2 className="mb-4 text-sm font-semibold text-slate-700">Revenue — last 6 months</h2>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-700">Revenue — last 6 months</h2>
+            <div className="text-right">
+              <div className="text-xs text-slate-400">This month</div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-slate-900">{peso(thisMonth)}</span>
+                <span
+                  className={`badge ${momUp ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                  title={`Last month: ${peso(lastMonth)}`}
+                >
+                  {momUp ? '▲' : '▼'} {pct(Math.abs(momDelta))} vs last month
+                </span>
+              </div>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data.charts.monthlyRevenue}>
+            <LineChart data={data.charts.monthlyRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} width={70} tickFormatter={(v) => peso(v)} />
               <Tooltip formatter={(v: number) => peso(v)} />
-              <Bar dataKey="revenue" fill="#e8521d" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                stroke="#e8521d"
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: '#e8521d' }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
 
