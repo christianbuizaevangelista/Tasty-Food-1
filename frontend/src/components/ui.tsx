@@ -43,8 +43,15 @@ const STATUS_STYLES: Record<string, string> = {
   DROP_SHIP: 'bg-violet-100 text-violet-700',
 };
 
+// Friendly labels for values that shouldn't show their raw enum form.
+const BADGE_LABEL: Record<string, string> = { TRADE: 'Regular', DROP_SHIP: 'Dropship' };
+
 export function Badge({ value }: { value: string }) {
-  return <span className={`badge ${STATUS_STYLES[value] ?? 'bg-slate-100 text-slate-600'}`}>{value.replace('_', ' ')}</span>;
+  return (
+    <span className={`badge ${STATUS_STYLES[value] ?? 'bg-slate-100 text-slate-600'}`}>
+      {BADGE_LABEL[value] ?? value.replace('_', ' ')}
+    </span>
+  );
 }
 
 export function Alert({ children, kind = 'error' }: { children: ReactNode; kind?: 'error' | 'info' | 'success' }) {

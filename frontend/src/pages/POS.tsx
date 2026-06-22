@@ -4,6 +4,7 @@ import { useFetch } from '../lib/useFetch';
 import { PageHeader, Spinner, Alert, Badge } from '../components/ui';
 import { peso, dateTime } from '../lib/format';
 import { DistributionType, Product } from '../types';
+import { distLabel } from '../lib/labels';
 
 interface Receipt {
   number: string;
@@ -96,7 +97,7 @@ export default function POS() {
                 onClick={() => setDistributionType(t)}
                 className={`btn flex-1 ${distributionType === t ? 'bg-brand-500 text-white' : 'border border-slate-300 bg-white'}`}
               >
-                {t.replace('_', ' ')}
+                {distLabel(t)}
               </button>
             ))}
           </div>

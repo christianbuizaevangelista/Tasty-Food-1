@@ -5,6 +5,7 @@ import { useFetch } from '../lib/useFetch';
 import { PageHeader, Spinner, Alert, Badge } from '../components/ui';
 import { peso, date } from '../lib/format';
 import { DistributionType, PoStatus, Product } from '../types';
+import { distLabel } from '../lib/labels';
 
 interface POItem { quantity: number; unitSrp: number; unitPrice: number; lineTotal: number; product: { sku: string; name: string }; }
 interface PO {
@@ -196,7 +197,7 @@ function CreatePO({
                 onClick={() => setDistributionType(t)}
                 className={`btn ${distributionType === t ? 'bg-brand-500 text-white' : 'border border-slate-300 bg-white'}`}
               >
-                {t.replace('_', ' ')}
+                {distLabel(t)}
               </button>
             ))}
           </div>

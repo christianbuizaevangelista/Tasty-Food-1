@@ -7,6 +7,7 @@ import { badRequest, forbidden, notFound, conflict } from '../../lib/errors';
 import { priceLines } from '../../lib/pricing';
 import { poNumber, saleNumber } from '../../lib/numbering';
 import { applyStockMovement } from '../inventory/inventory.service';
+import { sendPoSubmittedEmail } from '../../lib/email';
 
 export const poRouter = Router();
 poRouter.use(authenticate);
@@ -124,7 +125,30 @@ poRouter.post(
       });
       return u;
     });
-    res.json(updated);
+
+    // Notify the supplier (the tier directly above) by email — best effort,
+    // never blocks the submission.
+    let notification: { sent: boolean; reason?: string } = { sent: false };
+    try {
+      const seller = await prisma.organization.findUnique({
+        where: { id: po.sellerOrgId },
+        include: { users: { take: 1, orderBy: { createdAt: 'asc' }, select: { email: true } } },
+      });
+      const to = seller?.contactEmail || seller?.users[0]?.email || '';
+      notification = await sendPoSubmittedEmail({
+        to,
+        supplierName: po.sellerOrg.name,
+        poNumber: po.number,
+        buyerName: po.buyerOrg.name,
+        total: po.total,
+        distributionType: po.distributionType,
+        itemsCount: po.items.length,
+      });
+    } catch (err) {
+      console.error('[po.submit] notification failed', err);
+    }
+
+    res.json({ ...updated, notification });
   })
 );
 
