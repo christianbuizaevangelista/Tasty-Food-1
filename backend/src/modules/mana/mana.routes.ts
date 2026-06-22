@@ -6,6 +6,7 @@ import { authenticate } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
 import { badRequest, notFound, forbidden, conflict } from '../../lib/errors';
 import { adjustMana } from './mana.service';
+import { sendManaPurchaseEmail } from '../../lib/email';
 
 export const manaRouter = Router();
 manaRouter.use(authenticate);
@@ -88,6 +89,20 @@ manaRouter.post(
       },
       select: { id: true, amount: true, status: true },
     });
+
+    // Notify the Principal so they can review and approve (best-effort).
+    try {
+      const principal = await prisma.organization.findFirst({
+        where: { type: 'PRINCIPAL' },
+        include: { users: { take: 1, orderBy: { createdAt: 'asc' }, select: { email: true } } },
+      });
+      const buyer = await prisma.organization.findUnique({ where: { id: req.auth!.orgId }, select: { name: true } });
+      const to = principal?.contactEmail || principal?.users[0]?.email || '';
+      await sendManaPurchaseEmail({ to, orgName: buyer?.name ?? 'A distributor', amount: body.amount });
+    } catch (err) {
+      console.error('[mana.buy] notification failed', err);
+    }
+
     res.status(201).json(purchase);
   })
 );

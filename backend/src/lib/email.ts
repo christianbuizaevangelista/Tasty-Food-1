@@ -88,6 +88,47 @@ export async function sendSaleReceiptEmail(p: {
   }
 }
 
+export async function sendManaPurchaseEmail(p: {
+  to: string;
+  orgName: string;
+  amount: number;
+}): Promise<{ sent: boolean; reason?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM || 'Tasty Food <onboarding@resend.dev>';
+  if (!p.to) return { sent: false, reason: 'no recipient email' };
+  if (!apiKey) {
+    console.log(`[email] RESEND_API_KEY not set — would notify ${p.to} of Mana purchase by ${p.orgName}`);
+    return { sent: false, reason: 'RESEND_API_KEY not configured' };
+  }
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
+      <div style="background:#e8521d;color:#fff;padding:14px 18px;border-radius:8px 8px 0 0">
+        <strong style="font-size:16px">Juan Palaman · Tasty Food Mfg. Inc.</strong>
+      </div>
+      <div style="border:1px solid #eee;border-top:none;padding:18px;border-radius:0 0 8px 8px">
+        <h2 style="margin:0 0 8px">New Mana purchase request ✨</h2>
+        <p><strong>${p.orgName}</strong> wants to buy <strong>${peso(p.amount)}</strong> worth of Mana
+        (${p.amount.toLocaleString()} ✨).</p>
+        <p>Review the attached proof of payment and approve it in the Mana Wallet page.</p>
+      </div>
+    </div>`;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [p.to], subject: `Mana purchase request from ${p.orgName}`, html }),
+    });
+    if (!res.ok) {
+      console.error('[email] Resend error', res.status, await res.text());
+      return { sent: false, reason: `Resend responded ${res.status}` };
+    }
+    return { sent: true };
+  } catch (err: any) {
+    console.error('[email] mana purchase send failed', err?.message);
+    return { sent: false, reason: err?.message ?? 'send failed' };
+  }
+}
+
 export interface PoSubmittedEmail {
   to: string;
   supplierName: string;
