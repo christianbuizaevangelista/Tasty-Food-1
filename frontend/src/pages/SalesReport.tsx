@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  LineChart, Line, PieChart, Pie, Cell, Legend, Tooltip, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
+} from 'recharts';
 import { api, apiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useFetch } from '../lib/useFetch';
 import { PageHeader, Spinner, Alert, KpiCard, Badge } from '../components/ui';
 import { peso, num, date } from '../lib/format';
+
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const PIE_TYPE = ['#0ea5e9', '#8b5cf6'];
+const PIE_CHANNEL = ['#e8521d', '#f0a202'];
 import { DATE_PRESETS, DatePreset, presetRange } from '../lib/datePresets';
 
 interface Sale {
@@ -12,9 +19,10 @@ interface Sale {
   channel: 'PO' | 'POS';
   distributionType: 'TRADE' | 'DROP_SHIP';
   total: number;
+  subtotal: number;
   createdAt: string;
   customerName?: string;
-  sellerOrg: { id: string; name: string; type: string };
+  sellerOrg: { id: string; name: string; type: string; discountRate: number };
   buyerOrg?: { name: string } | null;
   items: { quantity: number }[];
 }
@@ -58,6 +66,36 @@ export default function SalesReport() {
   const [exportErr, setExportErr] = useState<string | null>(null);
   const [tab, setTab] = useState<SalesTab>('sales');
   const [detailId, setDetailId] = useState<string | null>(null);
+
+  // Daily Revenue vs Gross Income (margin) series for the line chart.
+  const daily = useMemo(() => {
+    const map = new Map<string, { label: string; revenue: number; gross: number }>();
+    for (const s of data?.sales ?? []) {
+      const d = new Date(s.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const cost = s.sellerOrg.type === 'PRINCIPAL' ? 0 : s.subtotal * (1 - s.sellerOrg.discountRate);
+      const row = map.get(key) ?? { label: key.slice(5), revenue: 0, gross: 0 };
+      row.revenue += s.total;
+      row.gross += s.total - cost;
+      map.set(key, row);
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, v]) => ({ label: v.label, revenue: round2(v.revenue), gross: round2(v.gross) }));
+  }, [data]);
+
+  const typePie = data
+    ? [
+        { name: 'Distribution', value: data.summary.trade.revenue },
+        { name: 'Drop-ship', value: data.summary.dropShip.revenue },
+      ]
+    : [];
+  const channelPie = data
+    ? [
+        { name: 'POS', value: data.summary.byChannel.POS.revenue },
+        { name: 'Purchase Order', value: data.summary.byChannel.PO.revenue },
+      ]
+    : [];
 
   async function exportCsv() {
     setExporting(true);
@@ -159,12 +197,6 @@ export default function SalesReport() {
         <Alert>{error}</Alert>
       ) : (
         <>
-          {/* Distribution / Drop-ship headline (renamed Trade -> Distribution) */}
-          <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-2">
-            <KpiCard label="Distribution Revenue" value={peso(data!.summary.trade.revenue)} hint={`${data!.summary.trade.count} sales · Regular`} />
-            <KpiCard label="Drop-ship Revenue" value={peso(data!.summary.dropShip.revenue)} hint={`${data!.summary.dropShip.count} sales`} />
-          </div>
-
           {/* Sub-section tabs */}
           <div className="mb-4 flex gap-2 border-b border-slate-200">
             {([
@@ -191,6 +223,36 @@ export default function SalesReport() {
                 <KpiCard label="Number of Transactions" value={num(data!.summary.count)} />
                 <KpiCard label="Gross Income" value={peso(data!.summary.grossIncome)} hint="sales − acquisition cost" />
               </div>
+
+              <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="card lg:col-span-2">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-700">Revenue vs Gross Income</h3>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <LineChart data={daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} width={70} tickFormatter={(v) => peso(v)} />
+                      <Tooltip formatter={(v: number) => peso(v)} />
+                      <Legend />
+                      <Line type="monotone" dataKey="revenue" name="Revenue" stroke="#e8521d" strokeWidth={2.5} dot={false} />
+                      <Line type="monotone" dataKey="gross" name="Gross Income" stroke="#0ea5e9" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="card">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-700">By Type</h3>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <PieChart>
+                      <Pie data={typePie} dataKey="value" nameKey="name" outerRadius={80} label>
+                        {typePie.map((_, i) => <Cell key={i} fill={PIE_TYPE[i]} />)}
+                      </Pie>
+                      <Legend />
+                      <Tooltip formatter={(v: number) => peso(v)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
               <div className="card overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -258,6 +320,19 @@ export default function SalesReport() {
           )}
 
           {tab === 'channel' && (
+            <div className="space-y-4">
+            <div className="card">
+              <h3 className="mb-3 text-sm font-semibold text-slate-700">Revenue by Channel</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={channelPie} dataKey="value" nameKey="name" outerRadius={90} label>
+                    {channelPie.map((_, i) => <Cell key={i} fill={PIE_CHANNEL[i]} />)}
+                  </Pie>
+                  <Legend />
+                  <Tooltip formatter={(v: number) => peso(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {([
                 { k: 'POS', label: 'POS (direct sales)' },
@@ -281,6 +356,7 @@ export default function SalesReport() {
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           )}
         </>
