@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useFetch } from '../lib/useFetch';
 import { PageHeader, Spinner, Alert, KpiCard, Badge } from '../components/ui';
 import { peso, num, date } from '../lib/format';
+import { DATE_PRESETS, DatePreset, presetRange } from '../lib/datePresets';
 
 interface Sale {
   id: string;
@@ -30,7 +31,14 @@ interface SalesResponse {
 
 export default function SalesReport() {
   const { user } = useAuth();
+  const [preset, setPreset] = useState<DatePreset>('all');
   const [filters, setFilters] = useState({ from: '', to: '', tier: '', distributionType: '', channel: '' });
+
+  function applyPreset(p: DatePreset) {
+    setPreset(p);
+    const r = presetRange(p);
+    if (r) setFilters((f) => ({ ...f, from: r.from, to: r.to }));
+  }
   const qs = useMemo(() => {
     const p = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => v && p.set(k, v));
@@ -75,15 +83,35 @@ export default function SalesReport() {
 
       {exportErr && <div className="mb-4"><Alert>{exportErr}</Alert></div>}
 
-      <div className="card mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <div>
-          <label className="label">From</label>
-          <input type="date" className="input" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+      <div className="card mb-6">
+        <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
+          {DATE_PRESETS.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => applyPreset(p.key)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                preset === p.key
+                  ? 'bg-brand-500 text-white'
+                  : 'border border-slate-200 text-slate-600 hover:border-brand-400 hover:text-brand-600'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
-        <div>
-          <label className="label">To</label>
-          <input type="date" className="input" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
-        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {preset === 'custom' && (
+          <>
+            <div>
+              <label className="label">From</label>
+              <input type="date" className="input" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">To</label>
+              <input type="date" className="input" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+            </div>
+          </>
+        )}
         {canFilterTier && (
           <div>
             <label className="label">Tier</label>
@@ -100,8 +128,8 @@ export default function SalesReport() {
           <label className="label">Type</label>
           <select className="input" value={filters.distributionType} onChange={(e) => setFilters({ ...filters, distributionType: e.target.value })}>
             <option value="">All</option>
-            <option value="TRADE">Trade</option>
-            <option value="DROP_SHIP">Drop Ship</option>
+            <option value="TRADE">Regular</option>
+            <option value="DROP_SHIP">Dropship</option>
           </select>
         </div>
         <div>
@@ -111,6 +139,7 @@ export default function SalesReport() {
             <option value="POS">POS</option>
             <option value="PO">Purchase Order</option>
           </select>
+        </div>
         </div>
       </div>
 
