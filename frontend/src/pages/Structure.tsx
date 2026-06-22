@@ -165,6 +165,7 @@ export default function Structure() {
   const [tModal, setTModal] = useState<TerritoryModal | null>(null);
   const [name, setName] = useState('');
   const [parentPick, setParentPick] = useState('');
+  const [provincePick, setProvincePick] = useState('');
   const [memberModal, setMemberModal] = useState<MemberModal | null>(null);
   const [detailsOrgId, setDetailsOrgId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -175,6 +176,7 @@ export default function Structure() {
   function openAddTerritory(level: Level) {
     setName('');
     setParentPick('');
+    setProvincePick('');
     setActionErr(null);
     const parentLevel = PARENT_LEVEL[level];
     const parentOptions = parentLevel ? nodesOfLevel(tree, parentLevel).map((n) => ({ id: n.id, name: n.name })) : undefined;
@@ -298,7 +300,31 @@ export default function Structure() {
             <h2 className="mb-3 text-lg font-bold">{tModal.mode === 'add' ? `Add ${tModal.label}` : `Rename ${tModal.label}`}</h2>
             {actionErr && <div className="mb-3"><Alert>{actionErr}</Alert></div>}
             {tModal.mode === 'add' && tModal.parentName && <p className="mb-3 text-xs text-slate-500">Under: {tModal.parentName}</p>}
-            {tModal.mode === 'add' && tModal.parentOptions && (
+            {tModal.mode === 'add' && tModal.parentOptions && tModal.level === 'BARANGAY' ? (
+              // Cascade: pick Province first, then its City/Municipality.
+              <>
+                <div className="mb-3">
+                  <label className="label">Province</label>
+                  <select
+                    className="input"
+                    value={provincePick}
+                    onChange={(e) => { setProvincePick(e.target.value); setParentPick(''); }}
+                  >
+                    <option value="">Select province…</option>
+                    {nodesOfLevel(tree, 'PROVINCE').map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label className="label">City / Municipality</label>
+                  <select className="input" value={parentPick} disabled={!provincePick} onChange={(e) => setParentPick(e.target.value)}>
+                    <option value="">{provincePick ? 'Select city/municipality…' : 'Select province first'}</option>
+                    {(nodesOfLevel(tree, 'PROVINCE').find((p) => p.id === provincePick)?.children ?? []).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            ) : tModal.mode === 'add' && tModal.parentOptions ? (
               <div className="mb-3">
                 <label className="label">Parent {LEVEL_META[PARENT_LEVEL[tModal.level]!].label}</label>
                 <select className="input" value={parentPick} onChange={(e) => setParentPick(e.target.value)}>
@@ -306,7 +332,7 @@ export default function Structure() {
                   {tModal.parentOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               </div>
-            )}
+            ) : null}
             <label className="label">{tModal.label} name</label>
             <input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitTerritory()} />
             <div className="mt-5 flex justify-end gap-2">
