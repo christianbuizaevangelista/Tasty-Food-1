@@ -16,7 +16,13 @@ async function loadScopedSale(req: any, id: string) {
     where: { id },
     include: {
       sellerOrg: { select: { name: true, type: true } },
-      buyerOrg: { select: { name: true, contactEmail: true } },
+      buyerOrg: {
+        select: {
+          name: true,
+          contactEmail: true,
+          users: { take: 1, orderBy: { createdAt: 'asc' }, select: { email: true } },
+        },
+      },
       items: { include: { product: { select: { sku: true, name: true } } } },
     },
   });
@@ -33,7 +39,8 @@ function receiptOf(sale: any) {
     channel: sale.channel,
     distributionType: sale.distributionType,
     customerName: sale.buyerOrg?.name ?? sale.customerName ?? 'Walk-in',
-    customerEmail: sale.buyerOrg?.contactEmail ?? null,
+    // Auto-fill from the customer's application: contact email, else admin login email.
+    customerEmail: sale.buyerOrg?.contactEmail ?? sale.buyerOrg?.users?.[0]?.email ?? null,
     discountRate: sale.discountRate,
     subtotal: sale.subtotal,
     total: sale.total,
@@ -89,13 +96,18 @@ salesRouter.get(
     const sales = await prisma.sale.findMany({
       where,
       include: {
-        sellerOrg: { select: { id: true, name: true, type: true } },
+        sellerOrg: { select: { id: true, name: true, type: true, discountRate: true } },
         buyerOrg: { select: { id: true, name: true, type: true } },
         items: { include: { product: { select: { sku: true, name: true } } } },
       },
       orderBy: { createdAt: 'desc' },
       take: 500,
     });
+
+    // Acquisition cost for the seller = SRP minus the seller's own tier discount.
+    // The Principal manufactures (no upstream cost), so its cost basis is 0.
+    const sellerCost = (s: (typeof sales)[number]) =>
+      s.sellerOrg.type === 'PRINCIPAL' ? 0 : s.subtotal * (1 - s.sellerOrg.discountRate);
 
     // Per-SKU aggregation.
     const skuMap = new Map<string, { sku: string; name: string; units: number; revenue: number }>();
@@ -125,7 +137,8 @@ salesRouter.get(
     const summary = {
       count: sales.length,
       revenue: round2(sales.reduce((s, x) => s + x.total, 0)),
-      grossIncome: round2(sales.reduce((s, x) => s + x.subtotal, 0)),
+      // Gross income = sales (selling price) minus acquisition cost (price they got it).
+      grossIncome: round2(sales.reduce((g, x) => g + (x.total - sellerCost(x)), 0)),
       units: sales.reduce((s, x) => s + x.items.reduce((u, i) => u + i.quantity, 0), 0),
       // "Distribution" = trade (stock moves down the chain); kept key name `trade`.
       trade: {

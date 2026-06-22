@@ -94,8 +94,10 @@ poRouter.post(
     if (buyer.status !== 'APPROVED' || !buyer.isActive) {
       throw forbidden('Your organization must be approved and active to create purchase orders');
     }
-    if (!buyer.parentId) throw badRequest('Principal has no upstream supplier to order from');
-    const sellerOrgId = buyer.parentId;
+    // Distributors order from their parent; the Principal has no upstream, so its
+    // PO is a stock-in / restock (buyer == seller == Principal).
+    const isStockIn = !buyer.parentId;
+    const sellerOrgId = buyer.parentId ?? buyer.id;
 
     const products = await prisma.product.findMany({
       where: { id: { in: body.items.map((i) => i.productId) } },
@@ -283,9 +285,13 @@ poRouter.post(
     requireSeller(req, po);
     if (po.status !== 'APPROVED') throw conflict(`Cannot fulfill a PO in status ${po.status}`);
 
+    // A stock-in PO (Principal restock) has buyer == seller: no stock is
+    // deducted and no sale is recorded — it only adds stock on receipt.
+    const isStockIn = po.buyerOrgId === po.sellerOrgId;
+
     try {
       const updated = await prisma.$transaction(async (tx) => {
-        if (po.distributionType === 'TRADE') {
+        if (po.distributionType === 'TRADE' && !isStockIn) {
           for (const item of po.items) {
             await applyStockMovement(tx, {
               orgId: po.sellerOrgId,
@@ -297,7 +303,8 @@ poRouter.post(
             });
           }
         }
-        // Record the seller's sale generated from this PO.
+        // Record the seller's sale generated from this PO (skip for stock-in).
+        if (!isStockIn)
         await tx.sale.create({
           data: {
             number: saleNumber(),

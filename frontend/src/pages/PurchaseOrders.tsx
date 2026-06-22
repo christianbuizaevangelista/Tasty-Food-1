@@ -129,7 +129,8 @@ export default function PurchaseOrders() {
   }
 
   const myOrgId = user!.org.id;
-  const canCreate = user!.role !== 'PRINCIPAL';
+  const isPrincipal = user!.role === 'PRINCIPAL';
+  const canCreate = true; // distributors order from supplier; Principal does stock-in
   const orders = data?.orders ?? [];
 
   // POs I placed with my supplier (I'm the buyer, the tier above) vs POs my
@@ -224,13 +225,9 @@ export default function PurchaseOrders() {
         title="Purchase Orders"
         subtitle="Separate views: what you buy from your supplier, and what your customers order from you."
         action={
-          canCreate ? (
-            <button className="btn-primary" onClick={() => setShowCreate(true)}>
-              + New PO to supplier
-            </button>
-          ) : (
-            <span className="text-xs text-slate-400">Principal has no upstream supplier</span>
-          )
+          <button className="btn-primary" onClick={() => setShowCreate(true)}>
+            {isPrincipal ? '+ New Stock-in PO' : '+ New PO to supplier'}
+          </button>
         }
       />
 
@@ -319,6 +316,7 @@ export default function PurchaseOrders() {
         <CreatePO
           products={products.data?.products ?? []}
           discountRate={user!.org.discountRate}
+          isStockIn={isPrincipal}
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false);
@@ -661,11 +659,13 @@ function ReceivePO({ po, onClose, onDone }: { po: PO; onClose: () => void; onDon
 function CreatePO({
   products,
   discountRate,
+  isStockIn = false,
   onClose,
   onCreated,
 }: {
   products: Product[];
   discountRate: number;
+  isStockIn?: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -740,28 +740,32 @@ function CreatePO({
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-1 text-lg font-bold">New Purchase Order</h2>
+        <h2 className="mb-1 text-lg font-bold">{isStockIn ? 'New Stock-in (Restock)' : 'New Purchase Order'}</h2>
         <p className="mb-4 text-xs text-slate-500">
-          Priced at your tier discount of {(discountRate * 100).toFixed(0)}% off SRP. Ordered from your immediate supplier.
+          {isStockIn
+            ? 'Add finished goods to your own inventory (production restock). Received quantities increase your stock.'
+            : `Priced at your tier discount of ${(discountRate * 100).toFixed(0)}% off SRP. Ordered from your immediate supplier.`}
         </p>
         {err && <div className="mb-3"><Alert>{err}</Alert></div>}
 
-        <div className="mb-4">
-          <label className="label">Distribution type</label>
-          <div className="flex gap-2">
-            {(['TRADE', 'DROP_SHIP'] as DistributionType[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setDistributionType(t)}
-                className={`btn ${distributionType === t ? 'bg-brand-500 text-white' : 'border border-slate-300 bg-white'}`}
-              >
-                {distLabel(t)}
-              </button>
-            ))}
+        {!isStockIn && (
+          <div className="mb-4">
+            <label className="label">Distribution type</label>
+            <div className="flex gap-2">
+              {(['TRADE', 'DROP_SHIP'] as DistributionType[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setDistributionType(t)}
+                  className={`btn ${distributionType === t ? 'bg-brand-500 text-white' : 'border border-slate-300 bg-white'}`}
+                >
+                  {distLabel(t)}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {isDropship && (
+        {!isStockIn && isDropship && (
           <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 p-3">
             <div className="mb-2 text-sm font-semibold text-violet-800">
               Drop-ship delivery details
