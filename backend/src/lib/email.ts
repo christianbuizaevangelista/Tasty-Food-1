@@ -8,6 +8,86 @@ function peso(n: number): string {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n || 0);
 }
 
+interface ReceiptLine {
+  sku: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+interface SaleReceipt {
+  number: string;
+  seller: { name: string };
+  customerName?: string;
+  discountRate: number;
+  subtotal: number;
+  total: number;
+  savings: number;
+  createdAt: string | Date;
+  lines: ReceiptLine[];
+}
+
+export async function sendSaleReceiptEmail(p: {
+  to: string;
+  receipt: SaleReceipt;
+}): Promise<{ sent: boolean; reason?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM || 'Tasty Food <onboarding@resend.dev>';
+  if (!p.to) return { sent: false, reason: 'no recipient email' };
+  if (!apiKey) {
+    console.log(`[email] RESEND_API_KEY not set — would email receipt ${p.receipt.number} to ${p.to}`);
+    return { sent: false, reason: 'Email is not configured (RESEND_API_KEY missing)' };
+  }
+
+  const r = p.receipt;
+  const rows = r.lines
+    .map(
+      (l) => `<tr>
+        <td style="padding:4px 0">${l.name}<br><span style="color:#999;font-size:11px">${l.quantity} × ${peso(l.unitPrice)}</span></td>
+        <td style="padding:4px 0;text-align:right">${peso(l.lineTotal)}</td>
+      </tr>`
+    )
+    .join('');
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
+      <div style="text-align:center;padding:12px">
+        <strong style="color:#e8521d;font-size:18px">Juan Palaman</strong><br>
+        <span style="color:#888;font-size:12px">${r.seller.name}</span>
+      </div>
+      <div style="border:1px solid #eee;border-radius:8px;padding:16px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#888">
+          <span>${r.number}</span><span>${new Date(r.createdAt).toLocaleString('en-PH')}</span>
+        </div>
+        <p style="font-size:12px;color:#666">Customer: ${r.customerName ?? 'Walk-in'}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>
+        <hr style="border:none;border-top:1px dashed #ddd">
+        <table style="width:100%;font-size:13px">
+          <tr><td style="color:#888">Subtotal (SRP)</td><td style="text-align:right">${peso(r.subtotal)}</td></tr>
+          <tr><td style="color:#888">Discount (${Math.round(r.discountRate * 100)}%)</td><td style="text-align:right">- ${peso(r.savings)}</td></tr>
+          <tr><td style="font-weight:bold;color:#e8521d">Total</td><td style="text-align:right;font-weight:bold;color:#e8521d">${peso(r.total)}</td></tr>
+        </table>
+      </div>
+      <p style="text-align:center;color:#aaa;font-size:11px;margin-top:8px">Thank you for your purchase!</p>
+    </div>`;
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [p.to], subject: `Receipt ${r.number} — Juan Palaman`, html }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error('[email] Resend error', res.status, body);
+      return { sent: false, reason: `Resend responded ${res.status}` };
+    }
+    return { sent: true };
+  } catch (err: any) {
+    console.error('[email] receipt send failed', err?.message);
+    return { sent: false, reason: err?.message ?? 'send failed' };
+  }
+}
+
 export interface PoSubmittedEmail {
   to: string;
   supplierName: string;
