@@ -26,9 +26,19 @@ interface PO {
   subtotal: number;
   total: number;
   createdAt: string;
-  buyerOrg: { id: string; name: string; type: string };
-  sellerOrg: { id: string; name: string; type: string };
+  buyerOrg: OrgParty;
+  sellerOrg: OrgParty;
   items: POItem[];
+}
+
+interface OrgParty {
+  id: string;
+  name: string;
+  type: string;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  address?: string | null;
 }
 
 // Which actions each side can take per status.

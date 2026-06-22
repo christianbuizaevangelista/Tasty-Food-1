@@ -12,6 +12,17 @@ import { sendPoSubmittedEmail } from '../../lib/email';
 export const poRouter = Router();
 poRouter.use(authenticate);
 
+// Org fields exposed on a PO so documents (e.g. PDF) can show full party details.
+const orgSelect = {
+  id: true,
+  name: true,
+  type: true,
+  contactName: true,
+  contactEmail: true,
+  contactPhone: true,
+  address: true,
+} as const;
+
 const createSchema = z.object({
   distributionType: z.enum(['TRADE', 'DROP_SHIP']).default('TRADE'),
   items: z
@@ -33,8 +44,8 @@ poRouter.get(
         ],
       },
       include: {
-        buyerOrg: { select: { id: true, name: true, type: true } },
-        sellerOrg: { select: { id: true, name: true, type: true } },
+        buyerOrg: { select: orgSelect },
+        sellerOrg: { select: orgSelect },
         items: { include: { product: { select: { sku: true, name: true } } } },
       },
       orderBy: { createdAt: 'desc' },
@@ -407,8 +418,8 @@ async function loadScopedPo(req: any, id: string) {
     where: { id },
     include: {
       items: { include: { product: { select: { sku: true, name: true } } } },
-      buyerOrg: { select: { id: true, name: true, type: true } },
-      sellerOrg: { select: { id: true, name: true, type: true } },
+      buyerOrg: { select: orgSelect },
+      sellerOrg: { select: orgSelect },
     },
   });
   if (!po) throw notFound('Purchase order not found');

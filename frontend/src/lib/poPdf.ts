@@ -1,7 +1,15 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { peso } from './format';
 import { distLabel } from './labels';
+
+interface Party {
+  name: string;
+  type: string;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  address?: string | null;
+}
 
 interface PoLike {
   number: string;
@@ -11,8 +19,8 @@ interface PoLike {
   subtotal: number;
   total: number;
   createdAt: string;
-  buyerOrg: { name: string; type: string };
-  sellerOrg: { name: string; type: string };
+  buyerOrg: Party;
+  sellerOrg: Party;
   items: {
     quantity: number;
     receivedQuantity?: number;
@@ -23,57 +31,103 @@ interface PoLike {
   }[];
 }
 
+// jsPDF's standard fonts can't render the ₱ glyph, so use an ASCII money format.
+function money(n: number): string {
+  return 'PHP ' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function partyLines(p: Party): string[] {
+  const lines = [`${p.name} (${p.type})`];
+  if (p.contactName) lines.push(`Attn: ${p.contactName}`);
+  if (p.contactEmail) lines.push(p.contactEmail);
+  if (p.contactPhone) lines.push(p.contactPhone);
+  if (p.address) lines.push(p.address);
+  return lines;
+}
+
 // Builds and downloads a one-page PDF for a purchase order.
+// Only orders supplied by the Principal carry the Tasty Food letterhead;
+// orders from any distributor tier use that distributor's own name.
 export function exportPoPdf(po: PoLike) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
   const M = 40;
+  const isPrincipalSupplier = po.sellerOrg.type === 'PRINCIPAL';
 
-  // Brand header
-  doc.setFillColor(232, 82, 29); // brand-500
-  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 64, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('Juan Palaman', M, 28);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.text('Tasty Food Manufacturing Inc. — Purchase Order', M, 46);
+  if (isPrincipalSupplier) {
+    // Tasty Food letterhead (manufacturer is the supplier).
+    doc.setFillColor(232, 82, 29);
+    doc.rect(0, 0, W, 64, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('Juan Palaman', M, 28);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Tasty Food Manufacturing Inc. — Purchase Order', M, 46);
+  } else {
+    // Distributor supplier: use their own name, no Tasty Food branding.
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(po.sellerOrg.name, M, 34);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Purchase Order', M, 50);
+    doc.setDrawColor(220, 220, 220);
+    doc.line(M, 60, W - M, 60);
+  }
 
-  // Title + status
+  // PO number + status
   doc.setTextColor(30, 30, 30);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
-  doc.text(po.number, M, 96);
+  doc.text(po.number, M, 92);
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(120, 120, 120);
-  doc.text(`Status: ${po.status.replace('_', ' ')}`, doc.internal.pageSize.getWidth() - M, 96, {
-    align: 'right',
-  });
+  doc.text(`Status: ${po.status.replace('_', ' ')}`, W - M, 92, { align: 'right' });
 
-  // Meta
-  doc.setTextColor(60, 60, 60);
+  // Two-column party details: supplier (From) and customer (Bill To)
+  const colY = 118;
+  const rightX = W / 2 + 10;
+  doc.setFontSize(9);
+  doc.setTextColor(150, 150, 150);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SUPPLIER', M, colY);
+  doc.text('CUSTOMER', rightX, colY);
+
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(60, 60, 60);
   doc.setFontSize(10);
-  const meta = [
-    `Buyer: ${po.buyerOrg.name} (${po.buyerOrg.type})`,
-    `Supplier: ${po.sellerOrg.name} (${po.sellerOrg.type})`,
-    `Distribution: ${distLabel(po.distributionType)}`,
-    `Date: ${new Date(po.createdAt).toLocaleString('en-PH')}`,
-    `Buyer discount: ${(po.discountRate * 100).toFixed(0)}%`,
-  ];
-  meta.forEach((line, i) => doc.text(line, M, 120 + i * 15));
+  const supplier = partyLines(po.sellerOrg);
+  const customer = partyLines(po.buyerOrg);
+  supplier.forEach((l, i) => doc.text(l, M, colY + 16 + i * 13));
+  customer.forEach((l, i) => doc.text(l, rightX, colY + 16 + i * 13));
+
+  const detailRows = Math.max(supplier.length, customer.length);
+  let y = colY + 16 + detailRows * 13 + 14;
+
+  // Order meta
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.text(`Date: ${new Date(po.createdAt).toLocaleString('en-PH')}`, M, y);
+  doc.text(`Distribution: ${distLabel(po.distributionType)}`, M, y + 14);
+  doc.text(`Buyer discount: ${(po.discountRate * 100).toFixed(0)}%`, M, y + 28);
+  y += 44;
 
   // Items table
   autoTable(doc, {
-    startY: 120 + meta.length * 15 + 10,
+    startY: y,
     head: [['SKU', 'Product', 'Ordered', 'Received', 'Unit Price', 'Line Total']],
     body: po.items.map((it) => [
       it.product.sku,
       it.product.name,
       String(it.quantity),
       String(it.receivedQuantity ?? 0),
-      peso(it.unitPrice),
-      peso(it.lineTotal),
+      money(it.unitPrice),
+      money(it.lineTotal),
     ]),
     styles: { fontSize: 9, cellPadding: 5 },
     headStyles: { fillColor: [232, 82, 29] },
@@ -88,14 +142,12 @@ export function exportPoPdf(po: PoLike) {
   const endY = (doc as any).lastAutoTable.finalY + 20;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(`Subtotal (SRP): ${peso(po.subtotal)}`, doc.internal.pageSize.getWidth() - M, endY, {
-    align: 'right',
-  });
+  doc.setTextColor(90, 90, 90);
+  doc.text(`Subtotal (SRP): ${money(po.subtotal)}`, W - M, endY, { align: 'right' });
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text(`Total: ${peso(po.total)}`, doc.internal.pageSize.getWidth() - M, endY + 18, {
-    align: 'right',
-  });
+  doc.setTextColor(30, 30, 30);
+  doc.text(`Total: ${money(po.total)}`, W - M, endY + 18, { align: 'right' });
 
   doc.save(`${po.number}.pdf`);
 }
