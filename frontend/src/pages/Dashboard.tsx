@@ -50,9 +50,10 @@ export default function Dashboard() {
   if (!data) return null;
 
   const c = data.cards;
+  // "Downline" = trade sales flowing down the distribution chain; "Dropship" = drop-ship sales.
   const pieData = [
-    { name: 'Trade', value: data.charts.byDistributionType.trade },
-    { name: 'Drop Ship', value: data.charts.byDistributionType.dropShip },
+    { name: 'Downline', value: data.charts.byDistributionType.trade },
+    { name: 'Dropship', value: data.charts.byDistributionType.dropShip },
   ];
 
   // Current month vs last month totals.
@@ -69,11 +70,14 @@ export default function Dashboard() {
         subtitle={`${ROLE_LABEL[user!.role]} · ${user?.org.name} · figures cover your chain, this month`}
       />
 
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {cm.label} · this month
+      </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Sales" value={peso(c.totalRevenue)} accent="text-brand-600" />
-        <KpiCard label="Units Sold" value={num(c.salesUnits)} />
-        <KpiCard label="Inventory Value" value={peso(c.inventoryValue)} hint="your org" />
-        <KpiCard label="Active Members" value={num(c.activeMembers)} hint="downstream" />
+        <KpiCard label="Total Sales" value={peso(c.totalRevenue)} hint="this month" accent="text-brand-600" />
+        <KpiCard label="Units Sold" value={num(c.salesUnits)} hint="this month" />
+        <KpiCard label="Inventory Value" value={peso(c.inventoryValue)} hint="your org · current" />
+        <KpiCard label="Active Members" value={num(c.activeMembers)} hint="downstream · current" />
         <KpiCard
           label="Pending Approvals"
           value={num(c.pendingApprovals)}
@@ -136,7 +140,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h2 className="mb-4 text-sm font-semibold text-slate-700">Trade vs Drop Ship</h2>
+          <h2 className="mb-4 text-sm font-semibold text-slate-700">Downline vs Dropship</h2>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={90} label>
