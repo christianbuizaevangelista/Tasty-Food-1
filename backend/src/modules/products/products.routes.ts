@@ -53,3 +53,16 @@ productsRouter.put(
     res.json(product);
   })
 );
+
+// DELETE /products/:id — soft delete (remove from catalog). Historical orders
+// and sales keep their product references intact.
+productsRouter.delete(
+  '/:id',
+  requireRole('PRINCIPAL'),
+  asyncHandler(async (req, res) => {
+    const existing = await prisma.product.findUnique({ where: { id: req.params.id } });
+    if (!existing) throw notFound('Product not found');
+    await prisma.product.update({ where: { id: req.params.id }, data: { isActive: false } });
+    res.json({ ok: true });
+  })
+);

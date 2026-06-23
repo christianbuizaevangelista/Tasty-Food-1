@@ -128,6 +128,19 @@ function EditProduct({ product, onClose, onSaved }: { product: Product; onClose:
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  async function remove() {
+    if (!window.confirm(`Delete "${product.name}"? It will be removed from the catalog.`)) return;
+    setErr(null);
+    setBusy(true);
+    try {
+      await api.delete(`/products/${product.id}`);
+      onSaved();
+    } catch (e) {
+      setErr(apiError(e));
+      setBusy(false);
+    }
+  }
+
   async function save() {
     setErr(null);
     setBusy(true);
@@ -179,11 +192,14 @@ function EditProduct({ product, onClose, onSaved }: { product: Product; onClose:
             <input className="input" placeholder="200g, 500g" value={form.sizes} onChange={(e) => setForm({ ...form, sizes: e.target.value })} />
           </div>
         </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" disabled={busy || !form.sku || !form.name || !form.srp} onClick={save}>
-            {busy ? 'Saving…' : 'Save changes'}
-          </button>
+        <div className="mt-5 flex items-center justify-between gap-2">
+          <button className="btn-ghost text-red-600" disabled={busy} onClick={remove}>Delete</button>
+          <div className="flex gap-2">
+            <button className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button className="btn-primary" disabled={busy || !form.sku || !form.name || !form.srp} onClick={save}>
+              {busy ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
