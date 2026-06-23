@@ -27,6 +27,7 @@ const orgSelect = {
 const createSchema = z.object({
   distributionType: z.enum(['TRADE', 'DROP_SHIP']).default('TRADE'),
   paymentMethod: z.enum(['CASH', 'MANA']).default('CASH'),
+  note: z.string().max(500).optional(),
   expectedDeliveryDate: z.coerce.date().optional(),
   // Drop-ship delivery details (required when distributionType is DROP_SHIP).
   recipientName: z.string().optional(),
@@ -59,13 +60,26 @@ poRouter.get(
     }
     const dateFilter = createdAt.gte || createdAt.lte ? { createdAt } : {};
 
+    const myOrgId = req.auth!.orgId;
+    // Trade POs are visible to the buyer, seller, and upstream (oversight).
+    // Drop-ship POs bypass intermediate tiers — visible only to the buyer and
+    // the seller (the Principal), so they never "pass through" the Provincial.
+    const visibility = {
+      OR: [
+        { buyerOrgId: myOrgId },
+        { sellerOrgId: myOrgId },
+        {
+          AND: [
+            { distributionType: 'TRADE' as const },
+            { OR: [{ buyerOrgId: { in: scope } }, { sellerOrgId: { in: scope } }] },
+          ],
+        },
+      ],
+    };
+
     const orders = await prisma.purchaseOrder.findMany({
       where: {
-        AND: [
-          { OR: [{ buyerOrgId: { in: scope } }, { sellerOrgId: { in: scope } }] },
-          status ? { status: status as any } : {},
-          dateFilter,
-        ],
+        AND: [visibility, status ? { status: status as any } : {}, dateFilter],
       },
       include: {
         buyerOrg: { select: orgSelect },
@@ -162,6 +176,7 @@ poRouter.post(
           sellerOrgId,
           distributionType: body.distributionType,
           paymentMethod: body.paymentMethod,
+          note: body.note ?? null,
           status: 'DRAFT',
           discountRate: buyer.discountRate,
           subtotal: priced.subtotal,
@@ -465,7 +480,12 @@ poRouter.post(
   '/:id/cancel',
   asyncHandler(async (req, res) => {
     const po = await loadScopedPo(req, req.params.id);
-    requireBuyer(req, po);
+    // The buyer, the seller, or the Principal may cancel a PO.
+    const canCancel =
+      req.auth!.orgId === po.buyerOrgId ||
+      req.auth!.orgId === po.sellerOrgId ||
+      req.auth!.role === 'PRINCIPAL';
+    if (!canCancel) throw forbidden('You are not allowed to cancel this purchase order');
     if (po.status === 'RECEIVED' || po.status === 'CANCELLED') {
       throw conflict(`Cannot cancel a PO in status ${po.status}`);
     }

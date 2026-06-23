@@ -27,6 +27,7 @@ interface PO {
   subtotal: number;
   total: number;
   paymentMethod?: 'CASH' | 'MANA';
+  note?: string | null;
   createdAt: string;
   expectedDeliveryDate?: string | null;
   recipientName?: string | null;
@@ -49,15 +50,19 @@ interface OrgParty {
 }
 
 // Which actions each side can take per status.
-function actionsFor(po: PO, myOrgId: string): { label: string; path: string }[] {
+function actionsFor(po: PO, myOrgId: string, role: string): { label: string; path: string }[] {
   const isBuyer = po.buyerOrg.id === myOrgId;
   const isSeller = po.sellerOrg.id === myOrgId;
+  const isPrincipal = role === 'PRINCIPAL';
   const a: { label: string; path: string }[] = [];
   if (isBuyer && po.status === 'DRAFT') a.push({ label: 'Submit', path: 'submit' });
   if (isSeller && po.status === 'SUBMITTED') a.push({ label: 'Approve', path: 'approve' });
   if (isSeller && po.status === 'APPROVED') a.push({ label: 'Fulfill', path: 'fulfill' });
-  if (isBuyer && ['DRAFT', 'SUBMITTED', 'APPROVED'].includes(po.status))
-    a.push({ label: 'Cancel', path: 'cancel' });
+  // Cancel: buyer (pre-fulfillment) OR seller/Principal (any non-terminal stage).
+  const buyerCancel = isBuyer && ['DRAFT', 'SUBMITTED', 'APPROVED'].includes(po.status);
+  const supplierCancel =
+    (isSeller || isPrincipal) && ['SUBMITTED', 'APPROVED', 'FULFILLED', 'PARTIALLY_RECEIVED'].includes(po.status);
+  if (buyerCancel || supplierCancel) a.push({ label: 'Cancel', path: 'cancel' });
   return a;
 }
 
@@ -179,7 +184,7 @@ export default function PurchaseOrders() {
                 <td className="td whitespace-nowrap text-xs text-slate-500">{date(po.createdAt)}</td>
                 <td className="td text-right">
                   <div className="flex flex-wrap justify-end gap-1">
-                    {actionsFor(po, myOrgId).map((a) => (
+                    {actionsFor(po, myOrgId, user!.role).map((a) => (
                       <button
                         key={a.path}
                         onClick={() => runAction(po, a.path)}
@@ -444,6 +449,12 @@ function PoDetails({ po, onClose }: { po: PO; onClose: () => void }) {
           </div>
         )}
 
+        {po.note && (
+          <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <span className="font-semibold">Note:</span> {po.note}
+          </div>
+        )}
+
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100">
@@ -673,6 +684,7 @@ function CreatePO({
   const [distributionType, setDistributionType] = useState<DistributionType>('TRADE');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'MANA'>('CASH');
   const wallet = useFetch<{ balance: number }>('/mana/wallet');
+  const [note, setNote] = useState('');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [recipient, setRecipient] = useState({ name: '', address: '', phone: '', landmark: '' });
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -726,6 +738,7 @@ function CreatePO({
       await api.post('/purchase-orders', {
         distributionType,
         paymentMethod: isStockIn ? 'CASH' : paymentMethod,
+        note: note.trim() || undefined,
         expectedDeliveryDate: expectedDeliveryDate || undefined,
         recipientName: isDropship ? recipient.name : undefined,
         recipientAddress: isDropship ? recipient.address : undefined,
@@ -845,6 +858,17 @@ function CreatePO({
             className="input max-w-xs"
             value={expectedDeliveryDate}
             onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="label">Note (optional)</label>
+          <textarea
+            className="input"
+            rows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Any instructions or remarks for this order…"
           />
         </div>
 

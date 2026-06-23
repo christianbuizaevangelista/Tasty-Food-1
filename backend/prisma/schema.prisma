@@ -244,6 +244,9 @@ model PurchaseOrder {
   // Payment method; MANA transfers credits from buyer to seller on approval.
   paymentMethod    PaymentMethod @default(CASH)
 
+  // Optional free-text note from the buyer.
+  note             String?
+
   // Buyer's target/expected delivery date (optional).
   expectedDeliveryDate DateTime?
 
