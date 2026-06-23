@@ -73,6 +73,9 @@ posRouter.post(
               change: -item.quantity,
               reason: 'POS_SALE',
               refType: 'Sale',
+              // Allow selling beyond stock — stock goes negative and is refilled
+              // once the goods are delivered/restocked.
+              allowNegative: true,
             });
           }
         }

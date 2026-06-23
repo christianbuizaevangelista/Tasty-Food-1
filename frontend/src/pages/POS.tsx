@@ -247,7 +247,7 @@ export default function POS() {
               <span>- {peso(subtotalSRP - total)}</span>
             </div>
             <div className="flex justify-between border-t border-slate-100 pt-1 text-base font-bold text-brand-600">
-              <span>Net Sales</span>
+              <span>Grand Total</span>
               <span>{peso(total)}</span>
             </div>
           </div>
