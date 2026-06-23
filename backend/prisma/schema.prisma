@@ -109,6 +109,8 @@ model Organization {
   status       OrgStatus @default(PENDING)
   // Membership activation (independent of approval; can be toggled later).
   isActive     Boolean   @default(true)
+  // When set, the account is removed from CRM/structure but its records remain.
+  archivedAt   DateTime?
 
   // CRM / contact details.
   contactName  String?

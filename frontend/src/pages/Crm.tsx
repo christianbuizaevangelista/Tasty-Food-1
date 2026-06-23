@@ -151,8 +151,8 @@ function DeleteAccount({ org, onClose, onDeleted }: { org: Org; onClose: () => v
       <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-1 text-lg font-bold text-red-700">Delete account</h2>
         <p className="mb-3 text-sm text-slate-600">
-          Permanently delete <span className="font-semibold">{org.name}</span> and its login. This cannot be undone.
-          Enter your account password to confirm.
+          Remove <span className="font-semibold">{org.name}</span> from the CRM and Org Structure, and block its login.
+          Its past records (sales, orders) are kept for reporting. Enter your account password to confirm.
         </p>
         {err && <div className="mb-3"><Alert>{err}</Alert></div>}
         <label className="label">Your password</label>

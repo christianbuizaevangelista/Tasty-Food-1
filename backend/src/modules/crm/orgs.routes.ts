@@ -23,6 +23,7 @@ orgsRouter.get(
     const orgs = await prisma.organization.findMany({
       where: {
         id: { in: scope },
+        archivedAt: null, // hide archived (deleted) accounts
         ...(req.query.includeSelf === 'true' ? {} : { NOT: { id: req.auth!.orgId } }),
         ...(type ? { type: type as any } : {}),
       },
@@ -241,44 +242,21 @@ orgsRouter.delete(
       throw forbidden('Incorrect password');
     }
 
-    const org = await prisma.organization.findUnique({
-      where: { id: req.params.id },
-      include: { _count: { select: { children: true } } },
-    });
+    const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
     if (!org) throw notFound('Organization not found');
-    if (org._count.children > 0) throw conflict('Remove its downstream accounts first');
+    const activeChildren = await prisma.organization.count({
+      where: { parentId: org.id, archivedAt: null },
+    });
+    if (activeChildren > 0) throw conflict('Remove its downstream accounts first');
 
-    // Cascade-delete the account and all its records, including order/sales history.
+    // Archive (soft delete): keep all records intact, but remove the account from
+    // the CRM and Org Structure, free its territory, and block its login.
     await prisma.$transaction(async (tx) => {
-      // Purchase orders where this org is buyer or seller (+ their items, attachments,
-      // approvals and generated sales).
-      const pos = await tx.purchaseOrder.findMany({
-        where: { OR: [{ buyerOrgId: org.id }, { sellerOrgId: org.id }] },
-        select: { id: true },
-      });
-      const poIds = pos.map((p) => p.id);
-      if (poIds.length) {
-        await tx.saleItem.deleteMany({ where: { sale: { poId: { in: poIds } } } });
-        await tx.sale.deleteMany({ where: { poId: { in: poIds } } });
-        await tx.poAttachment.deleteMany({ where: { poId: { in: poIds } } });
-        await tx.approval.deleteMany({ where: { poId: { in: poIds } } });
-        await tx.purchaseOrderItem.deleteMany({ where: { poId: { in: poIds } } });
-        await tx.purchaseOrder.deleteMany({ where: { id: { in: poIds } } });
-      }
-      // The org's own POS/PO sales, then detach it as a buyer on others' sales.
-      await tx.saleItem.deleteMany({ where: { sale: { sellerOrgId: org.id } } });
-      await tx.sale.deleteMany({ where: { sellerOrgId: org.id } });
-      await tx.sale.updateMany({ where: { buyerOrgId: org.id }, data: { buyerOrgId: null } });
-
       await tx.territory.updateMany({ where: { assignedOrgId: org.id }, data: { assignedOrgId: null } });
-      await tx.approval.deleteMany({ where: { orgId: org.id } });
-      await tx.manaTxn.deleteMany({ where: { orgId: org.id } });
-      await tx.manaPurchase.deleteMany({ where: { orgId: org.id } });
-      await tx.kPIRecord.deleteMany({ where: { orgId: org.id } });
-      await tx.stockLedger.deleteMany({ where: { orgId: org.id } });
-      await tx.inventory.deleteMany({ where: { orgId: org.id } });
-      await tx.user.deleteMany({ where: { orgId: org.id } });
-      await tx.organization.delete({ where: { id: org.id } });
+      await tx.organization.update({
+        where: { id: org.id },
+        data: { archivedAt: new Date(), isActive: false },
+      });
     });
     res.json({ ok: true });
   })

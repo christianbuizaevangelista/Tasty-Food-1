@@ -24,6 +24,7 @@ authRouter.post(
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
       throw unauthorized('Invalid email or password');
     }
+    if (user.org.archivedAt) throw forbidden('This account no longer exists');
     if (!user.isActive) throw forbidden('User account is deactivated');
     if (user.org.status !== 'APPROVED' || !user.org.isActive) {
       throw forbidden('Organization is not active. Contact your approver.');
