@@ -3,6 +3,7 @@ import { PageHeader, Spinner, Alert, KpiCard, Badge } from '../components/ui';
 import { peso, num, dateTime } from '../lib/format';
 import { InventoryItem } from '../types';
 import { useState } from 'react';
+import { api, apiError } from '../api/client';
 
 interface InvResponse {
   orgId: string;
@@ -21,12 +22,30 @@ interface LedgerEntry {
 }
 
 export default function Inventory() {
-  const { data, loading, error } = useFetch<InvResponse>('/inventory');
+  const { data, loading, error, refetch } = useFetch<InvResponse>('/inventory');
   const [ledgerFor, setLedgerFor] = useState<string | null>(null);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
   const ledger = useFetch<{ entries: LedgerEntry[] }>(
     ledgerFor ? `/inventory/ledger?productId=${ledgerFor}` : null,
     [ledgerFor]
   );
+
+  // Save cost / reorder level for an item, then refresh.
+  async function saveSetting(productId: string, patch: { cost?: number | null; reorderLevel?: number | null }) {
+    setSaveErr(null);
+    try {
+      await api.patch('/inventory/settings', { productId, ...patch });
+      refetch();
+    } catch (e) {
+      setSaveErr(apiError(e));
+    }
+  }
+  function parseNum(v: string): number | null {
+    const t = v.trim();
+    if (t === '') return null;
+    const n = Number(t);
+    return isNaN(n) ? null : n;
+  }
 
   if (loading) return <Spinner />;
   if (error) return <Alert>{error}</Alert>;
@@ -46,6 +65,8 @@ export default function Inventory() {
         />
       </div>
 
+      {saveErr && <div className="mb-4"><Alert>{saveErr}</Alert></div>}
+
       <div className="card overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -53,6 +74,7 @@ export default function Inventory() {
               <th className="th">SKU</th>
               <th className="th">Product</th>
               <th className="th text-right">SRP</th>
+              <th className="th text-right">Cost</th>
               <th className="th text-right">On hand</th>
               <th className="th text-right">Reorder @</th>
               <th className="th text-right">Value</th>
@@ -66,9 +88,35 @@ export default function Inventory() {
                 <td className="td font-medium">{it.name}</td>
                 <td className="td text-right">{peso(it.srp)}</td>
                 <td className="td text-right">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    defaultValue={it.cost ?? ''}
+                    placeholder="—"
+                    className="input w-24 text-right"
+                    onBlur={(e) => {
+                      const v = parseNum(e.target.value);
+                      if (v !== (it.cost ?? null)) saveSetting(it.productId, { cost: v });
+                    }}
+                  />
+                </td>
+                <td className="td text-right">
                   <span className={it.lowStock ? 'font-bold text-red-600' : ''}>{num(it.quantity)}</span>
                 </td>
-                <td className="td text-right text-slate-400">{it.reorderLevel}</td>
+                <td className="td text-right">
+                  <input
+                    type="number"
+                    min={0}
+                    defaultValue={it.reorderLevel ?? ''}
+                    placeholder="set…"
+                    className="input w-20 text-right"
+                    onBlur={(e) => {
+                      const v = parseNum(e.target.value);
+                      if (v !== (it.reorderLevel ?? null)) saveSetting(it.productId, { reorderLevel: v });
+                    }}
+                  />
+                </td>
                 <td className="td text-right">{peso(it.stockValue)}</td>
                 <td className="td text-right">
                   {it.lowStock && <Badge value="LOW" />}{' '}

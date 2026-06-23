@@ -1,4 +1,6 @@
 import { Prisma } from '@prisma/client';
+import { prisma } from '../../lib/prisma';
+import { sendLowStockEmail } from '../../lib/email';
 
 /**
  * Applies a stock movement for one org/product inside a transaction and writes
@@ -42,4 +44,53 @@ export async function applyStockMovement(
   });
 
   return balance;
+}
+
+/**
+ * Checks the given org's products against their reorder level and, for any that
+ * newly dropped to/below it, emails the distributor once (re-armed on restock).
+ * Best-effort; runs after the stock transaction, never throws.
+ */
+export async function notifyLowStock(orgId: string, productIds: string[]): Promise<void> {
+  if (productIds.length === 0) return;
+  try {
+    const rows = await prisma.inventory.findMany({
+      where: { orgId, productId: { in: productIds } },
+      include: { product: { select: { name: true, sku: true } } },
+    });
+    const newlyLow = rows.filter(
+      (r) => r.reorderLevel != null && r.quantity <= r.reorderLevel && r.lowStockNotifiedAt == null
+    );
+    const recovered = rows.filter(
+      (r) => r.reorderLevel != null && r.quantity > r.reorderLevel && r.lowStockNotifiedAt != null
+    );
+
+    if (newlyLow.length) {
+      await prisma.inventory.updateMany({
+        where: { id: { in: newlyLow.map((r) => r.id) } },
+        data: { lowStockNotifiedAt: new Date() },
+      });
+    }
+    if (recovered.length) {
+      await prisma.inventory.updateMany({
+        where: { id: { in: recovered.map((r) => r.id) } },
+        data: { lowStockNotifiedAt: null },
+      });
+    }
+
+    if (newlyLow.length) {
+      const org = await prisma.organization.findUnique({
+        where: { id: orgId },
+        include: { users: { take: 1, orderBy: { createdAt: 'asc' }, select: { email: true } } },
+      });
+      const to = org?.contactEmail || org?.users[0]?.email || '';
+      await sendLowStockEmail({
+        to,
+        orgName: org?.name ?? 'Distributor',
+        items: newlyLow.map((r) => ({ name: r.product.name, sku: r.product.sku, quantity: r.quantity, reorderLevel: r.reorderLevel! })),
+      });
+    }
+  } catch (err) {
+    console.error('[notifyLowStock]', err);
+  }
 }

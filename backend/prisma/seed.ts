@@ -227,7 +227,7 @@ async function main() {
     for (const p of products) {
       const qty = stockByType[org.type] + Math.floor(Math.random() * 40);
       await prisma.inventory.create({
-        data: { orgId: org.id, productId: p.id, quantity: qty, reorderLevel: org.type === 'RESELLER' ? 15 : 50 },
+        data: { orgId: org.id, productId: p.id, quantity: qty },
       });
       await prisma.stockLedger.create({
         data: { orgId: org.id, productId: p.id, change: qty, balance: qty, reason: 'INITIAL_STOCK' },

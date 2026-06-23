@@ -6,7 +6,7 @@ import { authenticate } from '../../middleware/auth';
 import { badRequest, forbidden, notFound } from '../../lib/errors';
 import { priceLines } from '../../lib/pricing';
 import { saleNumber } from '../../lib/numbering';
-import { applyStockMovement } from '../inventory/inventory.service';
+import { applyStockMovement, notifyLowStock } from '../inventory/inventory.service';
 
 export const posRouter = Router();
 posRouter.use(authenticate);
@@ -99,6 +99,10 @@ posRouter.post(
           },
         });
       });
+      // Low-stock reminder after a trade sale (best-effort).
+      if (body.distributionType === 'TRADE') {
+        await notifyLowStock(seller.id, priced.items.map((i) => i.productId));
+      }
       res.status(201).json(buildReceipt(sale));
     } catch (err: any) {
       if (typeof err?.message === 'string' && err.message.startsWith('Insufficient stock')) {

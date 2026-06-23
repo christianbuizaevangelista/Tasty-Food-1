@@ -35,10 +35,12 @@ inventoryRouter.get(
       name: r.product.name,
       category: r.product.category,
       srp: r.product.srp,
+      cost: r.cost,
       quantity: r.quantity,
       reorderLevel: r.reorderLevel,
-      lowStock: r.quantity <= r.reorderLevel,
+      lowStock: r.reorderLevel != null && r.quantity <= r.reorderLevel,
       stockValue: Math.round(r.quantity * r.product.srp * 100) / 100,
+      costValue: r.cost != null ? Math.round(r.quantity * r.cost * 100) / 100 : null,
       updatedAt: r.updatedAt,
     }));
     res.json({
@@ -59,7 +61,7 @@ inventoryRouter.get(
       include: { product: true, org: { select: { id: true, name: true, type: true } } },
     });
     const low = rows
-      .filter((r) => r.quantity <= r.reorderLevel)
+      .filter((r) => r.reorderLevel != null && r.quantity <= r.reorderLevel)
       .map((r) => ({
         orgId: r.orgId,
         orgName: r.org.name,
@@ -70,6 +72,30 @@ inventoryRouter.get(
         reorderLevel: r.reorderLevel,
       }));
     res.json({ alerts: low });
+  })
+);
+
+// PATCH /inventory/settings — set the unit cost and/or reorder level for an
+// item at the requester's own org (creates the inventory row if needed).
+const settingsSchema = z.object({
+  productId: z.string(),
+  cost: z.number().min(0).nullable().optional(),
+  reorderLevel: z.number().int().min(0).nullable().optional(),
+});
+inventoryRouter.patch(
+  '/settings',
+  asyncHandler(async (req, res) => {
+    const body = settingsSchema.parse(req.body);
+    const orgId = req.auth!.orgId;
+    const data: { cost?: number | null; reorderLevel?: number | null } = {};
+    if (body.cost !== undefined) data.cost = body.cost;
+    if (body.reorderLevel !== undefined) data.reorderLevel = body.reorderLevel;
+    const item = await prisma.inventory.upsert({
+      where: { orgId_productId: { orgId, productId: body.productId } },
+      create: { orgId, productId: body.productId, quantity: 0, ...data },
+      update: data,
+    });
+    res.json({ productId: item.productId, cost: item.cost, reorderLevel: item.reorderLevel });
   })
 );
 

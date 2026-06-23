@@ -6,7 +6,7 @@ import { authenticate } from '../../middleware/auth';
 import { badRequest, forbidden, notFound, conflict } from '../../lib/errors';
 import { priceLines } from '../../lib/pricing';
 import { poNumber, saleNumber } from '../../lib/numbering';
-import { applyStockMovement } from '../inventory/inventory.service';
+import { applyStockMovement, notifyLowStock } from '../inventory/inventory.service';
 import { adjustMana } from '../mana/mana.service';
 import { sendPoSubmittedEmail } from '../../lib/email';
 
@@ -386,6 +386,10 @@ poRouter.post(
           data: { status: 'FULFILLED', fulfilledAt: new Date() },
         });
       });
+      // Low-stock reminder for the seller after a trade fulfillment.
+      if (po.distributionType === 'TRADE' && !isStockIn) {
+        await notifyLowStock(po.sellerOrgId, po.items.map((i) => i.productId));
+      }
       res.json(updated);
     } catch (err: any) {
       if (typeof err?.message === 'string' && err.message.startsWith('Insufficient stock')) {

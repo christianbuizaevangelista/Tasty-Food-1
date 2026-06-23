@@ -41,10 +41,12 @@ export interface InventoryItem {
   name: string;
   category?: string;
   srp: number;
+  cost?: number | null;
   quantity: number;
-  reorderLevel: number;
+  reorderLevel: number | null;
   lowStock: boolean;
   stockValue: number;
+  costValue?: number | null;
 }
 
 export interface Org {

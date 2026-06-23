@@ -103,7 +103,7 @@ dashboardRouter.get(
         inventoryValue,
         pendingApprovals,
         activeMembers,
-        lowStockItems: ownInventory.filter((r) => r.quantity <= r.reorderLevel).length,
+        lowStockItems: ownInventory.filter((r) => r.reorderLevel != null && r.quantity <= r.reorderLevel).length,
       },
       charts: {
         currentMonth: {

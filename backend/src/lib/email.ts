@@ -129,6 +129,59 @@ export async function sendManaPurchaseEmail(p: {
   }
 }
 
+export async function sendLowStockEmail(p: {
+  to: string;
+  orgName: string;
+  items: { name: string; sku: string; quantity: number; reorderLevel: number }[];
+}): Promise<{ sent: boolean; reason?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM || 'Tasty Food <onboarding@resend.dev>';
+  if (!p.to) return { sent: false, reason: 'no recipient email' };
+  if (!apiKey) {
+    console.log(`[email] RESEND_API_KEY not set — low-stock reminder for ${p.orgName}`);
+    return { sent: false, reason: 'RESEND_API_KEY not configured' };
+  }
+  const rows = p.items
+    .map(
+      (i) => `<tr>
+        <td style="padding:4px 8px">${i.name}<br><span style="color:#999;font-size:11px">${i.sku}</span></td>
+        <td style="padding:4px 8px;text-align:right;color:#c0392b;font-weight:bold">${i.quantity}</td>
+        <td style="padding:4px 8px;text-align:right;color:#888">${i.reorderLevel}</td>
+      </tr>`
+    )
+    .join('');
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
+      <div style="background:#e8521d;color:#fff;padding:14px 18px;border-radius:8px 8px 0 0">
+        <strong style="font-size:16px">Juan Palaman · Tasty Food Mfg. Inc.</strong>
+      </div>
+      <div style="border:1px solid #eee;border-top:none;padding:18px;border-radius:0 0 8px 8px">
+        <h2 style="margin:0 0 6px">⚠️ Low stock reminder</h2>
+        <p>${p.orgName}, the following item(s) have reached their critical stock level:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr style="color:#888;text-align:left"><th style="padding:4px 8px">Item</th><th style="padding:4px 8px;text-align:right">On hand</th><th style="padding:4px 8px;text-align:right">Reorder @</th></tr>
+          ${rows}
+        </table>
+        <p style="margin-top:12px;color:#666">Please reorder soon to avoid running out.</p>
+      </div>
+    </div>`;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [p.to], subject: `Low stock reminder — ${p.items.length} item(s)`, html }),
+    });
+    if (!res.ok) {
+      console.error('[email] Resend error', res.status, await res.text());
+      return { sent: false, reason: `Resend responded ${res.status}` };
+    }
+    return { sent: true };
+  } catch (err: any) {
+    console.error('[email] low-stock send failed', err?.message);
+    return { sent: false, reason: err?.message ?? 'send failed' };
+  }
+}
+
 export interface PoSubmittedEmail {
   to: string;
   supplierName: string;
