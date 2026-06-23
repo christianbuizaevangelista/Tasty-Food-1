@@ -247,6 +247,9 @@ model PurchaseOrder {
   // Optional free-text note from the buyer.
   note             String?
 
+  // Shipping tracking link set by the Principal for drop-ship orders.
+  trackingLink     String?
+
   // Buyer's target/expected delivery date (optional).
   expectedDeliveryDate DateTime?
 

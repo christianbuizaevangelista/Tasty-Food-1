@@ -396,6 +396,25 @@ poRouter.post(
   })
 );
 
+// Seller (Principal for drop-ship) sets/updates the shipping tracking link.
+const trackingSchema = z.object({ trackingLink: z.string().trim().max(500).nullable().optional() });
+poRouter.post(
+  '/:id/tracking',
+  asyncHandler(async (req, res) => {
+    const po = await loadScopedPo(req, req.params.id);
+    requireSeller(req, po);
+    if (po.distributionType !== 'DROP_SHIP') {
+      throw badRequest('Tracking links apply to drop-ship orders only');
+    }
+    const { trackingLink } = trackingSchema.parse(req.body);
+    const updated = await prisma.purchaseOrder.update({
+      where: { id: po.id },
+      data: { trackingLink: trackingLink || null },
+    });
+    res.json({ ok: true, trackingLink: updated.trackingLink });
+  })
+);
+
 // Buyer records actual quantities received (supports partial receipts).
 // Body: { items: [{ itemId, received }] } where `received` is the quantity
 // received in THIS event. Trade -> increases buyer inventory by that amount;

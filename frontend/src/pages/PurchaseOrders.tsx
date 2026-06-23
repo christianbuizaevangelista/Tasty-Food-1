@@ -28,6 +28,7 @@ interface PO {
   total: number;
   paymentMethod?: 'CASH' | 'MANA';
   note?: string | null;
+  trackingLink?: string | null;
   createdAt: string;
   expectedDeliveryDate?: string | null;
   recipientName?: string | null;
@@ -350,11 +351,28 @@ export default function PurchaseOrders() {
 function PoDetails({ po, onClose }: { po: PO; onClose: () => void }) {
   const { user } = useAuth();
   const isBuyer = po.buyerOrg.id === user!.org.id;
+  const isSeller = po.sellerOrg.id === user!.org.id; // Principal for drop-ship
   const attachments = useFetch<{ attachments: Attachment[] }>(
     `/purchase-orders/${po.id}/attachments`
   );
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [tracking, setTracking] = useState(po.trackingLink ?? '');
+  const [savedTracking, setSavedTracking] = useState(po.trackingLink ?? '');
+  const [savingTracking, setSavingTracking] = useState(false);
+
+  async function saveTracking() {
+    setErr(null);
+    setSavingTracking(true);
+    try {
+      const { data } = await api.post(`/purchase-orders/${po.id}/tracking`, { trackingLink: tracking || null });
+      setSavedTracking(data.trackingLink ?? '');
+    } catch (e) {
+      setErr(apiError(e));
+    } finally {
+      setSavingTracking(false);
+    }
+  }
 
   function onFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -445,6 +463,35 @@ function PoDetails({ po, onClose }: { po: PO; onClose: () => void }) {
               <div><span className="text-violet-600">Cellphone:</span> {po.recipientPhone || '—'}</div>
               <div className="sm:col-span-2"><span className="text-violet-600">Address:</span> {po.recipientAddress || '—'}</div>
               <div className="sm:col-span-2"><span className="text-violet-600">Landmark:</span> {po.landmark || '—'}</div>
+            </div>
+
+            {/* Shipping tracking link — editable by the seller (Principal) */}
+            <div className="mt-3 border-t border-violet-200 pt-2">
+              <div className="mb-1 text-xs font-semibold text-violet-700">🚚 Shipping tracking</div>
+              {isSeller ? (
+                <div className="flex gap-2">
+                  <input
+                    className="input"
+                    placeholder="https://courier.com/track/123…"
+                    value={tracking}
+                    onChange={(e) => setTracking(e.target.value)}
+                  />
+                  <button className="btn-primary whitespace-nowrap" disabled={savingTracking} onClick={saveTracking}>
+                    {savingTracking ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              ) : savedTracking ? (
+                <a href={savedTracking} target="_blank" rel="noreferrer" className="break-all text-brand-600 underline">
+                  {savedTracking}
+                </a>
+              ) : (
+                <span className="text-xs text-slate-500">No tracking link yet.</span>
+              )}
+              {isSeller && savedTracking && (
+                <a href={savedTracking} target="_blank" rel="noreferrer" className="mt-1 block break-all text-xs text-brand-600 underline">
+                  Open current link ↗
+                </a>
+              )}
             </div>
           </div>
         )}
