@@ -99,7 +99,18 @@ poRouter.post(
     // Distributors order from their parent; the Principal has no upstream, so its
     // PO is a stock-in / restock (buyer == seller == Principal).
     const isStockIn = !buyer.parentId;
-    const sellerOrgId = buyer.parentId ?? buyer.id;
+    let sellerOrgId: string;
+    if (isStockIn) {
+      sellerOrgId = buyer.id; // Principal restock
+    } else if (body.distributionType === 'DROP_SHIP') {
+      // Drop-ship ships from the Principal directly — bypass intermediate tiers
+      // (and the Mana payment goes straight to the Principal too).
+      const principal = await prisma.organization.findFirst({ where: { type: 'PRINCIPAL' }, select: { id: true } });
+      if (!principal) throw badRequest('No Principal organization configured');
+      sellerOrgId = principal.id;
+    } else {
+      sellerOrgId = buyer.parentId!;
+    }
 
     const products = await prisma.product.findMany({
       where: { id: { in: body.items.map((i) => i.productId) } },
