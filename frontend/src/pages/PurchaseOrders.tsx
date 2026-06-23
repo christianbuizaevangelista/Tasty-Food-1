@@ -931,7 +931,7 @@ function CreatePO({
           <tbody>
             {products.map((p) => (
               <tr key={p.id} className="border-b border-slate-50">
-                <td className="td">{p.name}</td>
+                <td className="td">{p.name}{p.size ? <span className="ml-1 text-xs text-slate-400">({p.size})</span> : ''}</td>
                 <td className="td text-right">{peso(p.srp)}</td>
                 <td className="td text-right text-brand-600">{peso(p.srp * (1 - discountRate))}</td>
                 <td className="td text-right">

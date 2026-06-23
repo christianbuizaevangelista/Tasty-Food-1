@@ -117,7 +117,7 @@ export default function POS() {
             {products.map((p) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-2">
                 <div>
-                  <div className="text-sm font-medium">{p.name}</div>
+                  <div className="text-sm font-medium">{p.name}{p.size ? ` (${p.size})` : ''}</div>
                   <div className="text-xs text-slate-400">
                     {peso(p.srp)}
                     {discountRate > 0 && <span className="ml-1 text-brand-600">→ {peso(p.srp * (1 - discountRate))}</span>}

@@ -1,47 +1,34 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { api, apiError } from '../api/client';
 import { useFetch } from '../lib/useFetch';
 import { PageHeader, Spinner, Alert } from '../components/ui';
 import { peso } from '../lib/format';
 import { Product } from '../types';
 
+interface Group {
+  name: string;
+  category: string;
+  items: Product[];
+}
+
 export default function Products() {
   const { data, loading, error, refetch } = useFetch<{ products: Product[] }>('/products');
-  const [form, setForm] = useState({ sku: '', name: '', category: '', size: '', srp: '' });
+  // New product: a base name/category + its first size (size, SKU, SRP).
+  const [form, setForm] = useState({ name: '', category: '', size: '', sku: '', srp: '' });
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkBusy, setBulkBusy] = useState(false);
+  const [editing, setEditing] = useState<Group | null>(null);
 
   const products = data?.products ?? [];
-  const allSelected = products.length > 0 && selected.size === products.length;
-
-  function toggle(id: string) {
-    setSelected((s) => {
-      const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
-  }
-  function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(products.map((p) => p.id)));
-  }
-  async function bulkDelete() {
-    if (selected.size === 0) return;
-    if (!window.confirm(`Delete ${selected.size} selected product(s)? They will be removed from the catalog.`)) return;
-    setBulkBusy(true);
-    setErr(null);
-    try {
-      await api.post('/products/bulk-delete', { ids: [...selected] });
-      setSelected(new Set());
-      refetch();
-    } catch (e) {
-      setErr(apiError(e));
-    } finally {
-      setBulkBusy(false);
+  const groups: Group[] = useMemo(() => {
+    const m = new Map<string, Product[]>();
+    for (const p of products) {
+      const arr = m.get(p.name) ?? [];
+      arr.push(p);
+      m.set(p.name, arr);
     }
-  }
+    return [...m.entries()].map(([name, items]) => ({ name, category: items[0].category ?? '', items }));
+  }, [products]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -49,17 +36,17 @@ export default function Products() {
     setMsg(null);
     try {
       await api.post('/products', {
-        sku: form.sku,
         name: form.name,
         category: form.category || undefined,
         size: form.size || undefined,
+        sku: form.sku,
         srp: Number(form.srp),
       });
-      setForm({ sku: '', name: '', category: '', size: '', srp: '' });
+      setForm({ name: '', category: '', size: '', sku: '', srp: '' });
       setMsg('Product added');
       refetch();
-    } catch (e) {
-      setErr(apiError(e));
+    } catch (e2) {
+      setErr(apiError(e2));
     }
   }
 
@@ -68,7 +55,7 @@ export default function Products() {
 
   return (
     <div>
-      <PageHeader title="Products" subtitle="Master catalog — click a product to edit. SRP drives all tier pricing." />
+      <PageHeader title="Products" subtitle="Each product can have multiple sizes — each size has its own SKU and SRP." />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <form onSubmit={submit} className="card space-y-3">
@@ -76,74 +63,66 @@ export default function Products() {
           {err && <Alert>{err}</Alert>}
           {msg && <Alert kind="success">{msg}</Alert>}
           <div>
-            <label className="label">SKU</label>
-            <input className="input" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} required />
-          </div>
-          <div>
-            <label className="label">Name</label>
+            <label className="label">Product name</label>
             <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </div>
           <div>
             <label className="label">Category</label>
             <input className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
           </div>
-          <div>
-            <label className="label">Size</label>
-            <input className="input" placeholder="e.g. 200g" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">SRP (₱)</label>
-            <input className="input" type="number" step="0.01" value={form.srp} onChange={(e) => setForm({ ...form, srp: e.target.value })} required />
+          <div className="rounded-lg border border-slate-200 p-2">
+            <div className="mb-2 text-xs font-semibold uppercase text-slate-400">First size</div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="label">Size</label>
+                <input className="input" placeholder="200g" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">SKU</label>
+                <input className="input" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} required />
+              </div>
+              <div>
+                <label className="label">SRP</label>
+                <input className="input" type="number" step="0.01" value={form.srp} onChange={(e) => setForm({ ...form, srp: e.target.value })} required />
+              </div>
+            </div>
           </div>
           <button className="btn-primary w-full">Add product</button>
         </form>
 
         <div className="card overflow-x-auto lg:col-span-2">
-          {selected.size > 0 && (
-            <div className="mb-3 flex items-center justify-between rounded-lg bg-red-50 px-3 py-2 text-sm">
-              <span className="text-red-700">{selected.size} selected</span>
-              <div className="flex gap-2">
-                <button className="btn-ghost text-xs" onClick={() => setSelected(new Set())}>Clear</button>
-                <button className="btn-primary bg-red-600 text-xs hover:bg-red-700" disabled={bulkBusy} onClick={bulkDelete}>
-                  {bulkBusy ? 'Deleting…' : `Delete selected (${selected.size})`}
-                </button>
-              </div>
-            </div>
-          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="th w-8">
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll} title="Select all" />
-                </th>
-                <th className="th">SKU</th>
-                <th className="th">Name</th>
+                <th className="th">Product</th>
                 <th className="th">Category</th>
-                <th className="th">Size</th>
-                <th className="th text-right">SRP</th>
+                <th className="th">Sizes</th>
+                <th className="th text-right">SRP range</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
-                  <td className="td" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} />
-                  </td>
-                  <td className="td cursor-pointer font-mono text-xs" onClick={() => setEditing(p)}>{p.sku}</td>
-                  <td className="td cursor-pointer font-medium text-brand-600 hover:underline" onClick={() => setEditing(p)}>{p.name}</td>
-                  <td className="td cursor-pointer text-slate-500" onClick={() => setEditing(p)}>{p.category || '—'}</td>
-                  <td className="td cursor-pointer text-xs text-slate-500" onClick={() => setEditing(p)}>{p.size || '—'}</td>
-                  <td className="td cursor-pointer text-right" onClick={() => setEditing(p)}>{peso(p.srp)}</td>
-                </tr>
-              ))}
+              {groups.map((g) => {
+                const srps = g.items.map((i) => i.srp);
+                const lo = Math.min(...srps);
+                const hi = Math.max(...srps);
+                return (
+                  <tr key={g.name} className="cursor-pointer border-b border-slate-50 hover:bg-slate-50" onClick={() => setEditing(g)}>
+                    <td className="td font-medium text-brand-600 hover:underline">{g.name}</td>
+                    <td className="td text-slate-500">{g.category || '—'}</td>
+                    <td className="td text-xs text-slate-500">{g.items.map((i) => i.size || '—').join(', ')}</td>
+                    <td className="td text-right">{lo === hi ? peso(lo) : `${peso(lo)} – ${peso(hi)}`}</td>
+                  </tr>
+                );
+              })}
+              {!groups.length && <tr><td className="td text-slate-400" colSpan={4}>No products yet.</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
 
       {editing && (
-        <EditProduct
-          product={editing}
+        <EditGroup
+          group={editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -155,84 +134,112 @@ export default function Products() {
   );
 }
 
-function EditProduct({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({
-    sku: product.sku,
-    name: product.name,
-    category: product.category ?? '',
-    size: product.size ?? '',
-    srp: String(product.srp),
-  });
+interface SizeRow {
+  id?: string; // existing product row id; absent = new
+  size: string;
+  sku: string;
+  srp: string;
+}
+
+function EditGroup({ group, onClose, onSaved }: { group: Group; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(group.name);
+  const [category, setCategory] = useState(group.category);
+  const [rows, setRows] = useState<SizeRow[]>(
+    group.items.map((i) => ({ id: i.id, size: i.size ?? '', sku: i.sku, srp: String(i.srp) }))
+  );
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function remove() {
-    if (!window.confirm(`Delete "${product.name}"? It will be removed from the catalog.`)) return;
-    setErr(null);
-    setBusy(true);
-    try {
-      await api.delete(`/products/${product.id}`);
-      onSaved();
-    } catch (e) {
-      setErr(apiError(e));
-      setBusy(false);
-    }
+  function setRow(idx: number, patch: Partial<SizeRow>) {
+    setRows((r) => r.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
+  }
+  function addRow() {
+    setRows((r) => [...r, { size: '', sku: '', srp: '' }]);
+  }
+  function removeRow(idx: number) {
+    setRows((r) => r.filter((_, i) => i !== idx));
   }
 
   async function save() {
     setErr(null);
+    if (rows.length === 0) return setErr('Keep at least one size, or delete the product entirely.');
+    for (const row of rows) {
+      if (!row.sku || !row.srp) return setErr('Each size needs a SKU and SRP.');
+    }
     setBusy(true);
     try {
-      await api.put(`/products/${product.id}`, {
-        sku: form.sku,
-        name: form.name,
-        category: form.category || undefined,
-        size: form.size || undefined,
-        srp: Number(form.srp),
-      });
+      const keptIds = new Set(rows.filter((r) => r.id).map((r) => r.id));
+      // Delete removed sizes.
+      const removed = group.items.filter((i) => !keptIds.has(i.id));
+      for (const r of removed) await api.delete(`/products/${r.id}`);
+      // Upsert each size row (shared name/category).
+      for (const row of rows) {
+        const payload = {
+          name,
+          category: category || undefined,
+          size: row.size || undefined,
+          sku: row.sku,
+          srp: Number(row.srp),
+        };
+        if (row.id) await api.put(`/products/${row.id}`, payload);
+        else await api.post('/products', payload);
+      }
       onSaved();
     } catch (e) {
       setErr(apiError(e));
-    } finally {
       setBusy(false);
     }
   }
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 text-lg font-bold">Edit product</h2>
         {err && <div className="mb-3"><Alert>{err}</Alert></div>}
+
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">SKU</label>
-            <input className="input" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+            <label className="label">Product name</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label className="label">SRP (₱)</label>
-            <input className="input" type="number" step="0.01" value={form.srp} onChange={(e) => setForm({ ...form, srp: e.target.value })} />
-          </div>
-          <div className="col-span-2">
-            <label className="label">Name</label>
-            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-          <div className="col-span-2">
             <label className="label">Category</label>
-            <input className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-          </div>
-          <div className="col-span-2">
-            <label className="label">Size</label>
-            <input className="input" placeholder="e.g. 200g" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
+            <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} />
           </div>
         </div>
-        <div className="mt-5 flex items-center justify-between gap-2">
-          <button className="btn-ghost text-red-600" disabled={busy} onClick={remove}>Delete</button>
-          <div className="flex gap-2">
-            <button className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button className="btn-primary" disabled={busy || !form.sku || !form.name || !form.srp} onClick={save}>
-              {busy ? 'Saving…' : 'Save changes'}
-            </button>
+
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="label mb-0">Sizes (each has its own SKU & SRP)</label>
+            <button className="btn-ghost text-xs" onClick={addRow}>+ Add size</button>
           </div>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="th">Size</th>
+                <th className="th">SKU</th>
+                <th className="th text-right">SRP</th>
+                <th className="th"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={idx} className="border-b border-slate-50">
+                  <td className="td"><input className="input" placeholder="200g" value={row.size} onChange={(e) => setRow(idx, { size: e.target.value })} /></td>
+                  <td className="td"><input className="input" value={row.sku} onChange={(e) => setRow(idx, { sku: e.target.value })} /></td>
+                  <td className="td"><input className="input text-right" type="number" step="0.01" value={row.srp} onChange={(e) => setRow(idx, { srp: e.target.value })} /></td>
+                  <td className="td text-right">
+                    <button className="text-xs font-semibold text-red-600 hover:underline" onClick={() => removeRow(idx)}>Remove</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save changes'}</button>
         </div>
       </div>
     </div>
