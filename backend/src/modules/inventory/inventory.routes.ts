@@ -23,30 +23,44 @@ inventoryRouter.get(
   '/',
   asyncHandler(async (req, res) => {
     const orgId = resolveOrgId(req);
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { type: true, discountRate: true },
+    });
+    const isPrincipalOrg = org?.type === 'PRINCIPAL';
+    // Principal edits its own (production) cost; everyone else's cost is derived
+    // from the price they buy at = SRP x (1 - their tier discount).
+    const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
     const rows = await prisma.inventory.findMany({
       where: { orgId },
       include: { product: true },
       orderBy: { product: { name: 'asc' } },
     });
-    const data = rows.map((r) => ({
-      id: r.id,
-      productId: r.productId,
-      sku: r.product.sku,
-      name: r.product.name,
-      category: r.product.category,
-      srp: r.product.srp,
-      cost: r.cost,
-      quantity: r.quantity,
-      reorderLevel: r.reorderLevel,
-      lowStock: r.reorderLevel != null && r.quantity <= r.reorderLevel,
-      stockValue: Math.round(r.quantity * r.product.srp * 100) / 100,
-      costValue: r.cost != null ? Math.round(r.quantity * r.cost * 100) / 100 : null,
-      updatedAt: r.updatedAt,
-    }));
+    const data = rows.map((r) => {
+      const cost = isPrincipalOrg ? r.cost : r2(r.product.srp * (1 - (org?.discountRate ?? 0)));
+      return {
+        id: r.id,
+        productId: r.productId,
+        sku: r.product.sku,
+        name: r.product.name,
+        category: r.product.category,
+        srp: r.product.srp,
+        cost,
+        quantity: r.quantity,
+        reorderLevel: r.reorderLevel,
+        lowStock: r.reorderLevel != null && r.quantity <= r.reorderLevel,
+        stockValue: r2(r.quantity * r.product.srp),
+        costValue: cost != null ? r2(r.quantity * cost) : null,
+        updatedAt: r.updatedAt,
+      };
+    });
     res.json({
       orgId,
       items: data,
-      totalValue: Math.round(data.reduce((s, d) => s + d.stockValue, 0) * 100) / 100,
+      // Only the Principal can edit cost, and only on its own inventory.
+      costEditable: isPrincipalOrg && orgId === req.auth!.orgId,
+      totalValue: r2(data.reduce((s, d) => s + d.stockValue, 0)),
       lowStockCount: data.filter((d) => d.lowStock).length,
     });
   })
@@ -88,7 +102,11 @@ inventoryRouter.patch(
     const body = settingsSchema.parse(req.body);
     const orgId = req.auth!.orgId;
     const data: { cost?: number | null; reorderLevel?: number | null } = {};
-    if (body.cost !== undefined) data.cost = body.cost;
+    if (body.cost !== undefined) {
+      // Only the Principal sets cost; distributors' cost is derived from discount.
+      if (req.auth!.role !== 'PRINCIPAL') throw badRequest('Only the Principal can set cost');
+      data.cost = body.cost;
+    }
     if (body.reorderLevel !== undefined) data.reorderLevel = body.reorderLevel;
     const item = await prisma.inventory.upsert({
       where: { orgId_productId: { orgId, productId: body.productId } },

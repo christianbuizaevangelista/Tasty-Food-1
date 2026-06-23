@@ -8,6 +8,7 @@ import { api, apiError } from '../api/client';
 interface InvResponse {
   orgId: string;
   items: InventoryItem[];
+  costEditable: boolean;
   totalValue: number;
   lowStockCount: number;
 }
@@ -88,18 +89,22 @@ export default function Inventory() {
                 <td className="td font-medium">{it.name}</td>
                 <td className="td text-right">{peso(it.srp)}</td>
                 <td className="td text-right">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    defaultValue={it.cost ?? ''}
-                    placeholder="—"
-                    className="input w-24 text-right"
-                    onBlur={(e) => {
-                      const v = parseNum(e.target.value);
-                      if (v !== (it.cost ?? null)) saveSetting(it.productId, { cost: v });
-                    }}
-                  />
+                  {data.costEditable ? (
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      defaultValue={it.cost ?? ''}
+                      placeholder="—"
+                      className="input w-24 text-right"
+                      onBlur={(e) => {
+                        const v = parseNum(e.target.value);
+                        if (v !== (it.cost ?? null)) saveSetting(it.productId, { cost: v });
+                      }}
+                    />
+                  ) : (
+                    <span className="text-slate-500">{it.cost != null ? peso(it.cost) : '—'}</span>
+                  )}
                 </td>
                 <td className="td text-right">
                   <span className={it.lowStock ? 'font-bold text-red-600' : ''}>{num(it.quantity)}</span>
