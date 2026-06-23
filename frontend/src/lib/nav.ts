@@ -13,7 +13,7 @@ const ALL: Role[] = ['PRINCIPAL', 'PROVINCIAL', 'CITY', 'RESELLER'];
 
 // Sidebar modules, filtered by role + permission. Order reflects UX priority.
 export const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: '📊', roles: ALL },
+  { to: '/', label: 'Dashboard', icon: '📊', roles: ALL, perm: 'dashboard' },
   { to: '/structure', label: 'Org Structure', icon: '🗺️', roles: ALL, perm: 'structure' },
   { to: '/inventory', label: 'Inventory', icon: '📦', roles: ALL, perm: 'inventory' },
   { to: '/purchase-orders', label: 'Purchase Orders', icon: '🧾', roles: ALL, perm: 'purchase-orders' },
@@ -45,6 +45,12 @@ export function canAccessPath(user: Pick<AuthUser, 'role' | 'isOwner' | 'permiss
   const item = NAV.find((n) => n.to === path);
   if (!item) return true; // unknown/utility route
   return canAccess(user, item);
+}
+
+// The first sidebar destination the user can open — used as their landing page
+// (staff who lack Dashboard access are sent to their first assigned module).
+export function firstAccessiblePath(user: Pick<AuthUser, 'role' | 'isOwner' | 'permissions'>): string {
+  return navForUser(user)[0]?.to ?? '/account';
 }
 
 export const ROLE_LABEL: Record<Role, string> = {

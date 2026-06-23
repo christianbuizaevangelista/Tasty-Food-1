@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ReactNode } from 'react';
 import { useAuth } from './auth/AuthContext';
-import { canAccessPath } from './lib/nav';
+import { canAccessPath, firstAccessiblePath } from './lib/nav';
 import Layout from './components/Layout';
 import { Spinner } from './components/ui';
 
@@ -26,7 +26,10 @@ function Protected({ children, path }: { children: ReactNode; path: string }) {
   const { user, loading } = useAuth();
   if (loading) return <Spinner />;
   if (!user) return <Navigate to="/login" replace />;
-  if (!canAccessPath(user, path)) return <Navigate to="/" replace />;
+  if (!canAccessPath(user, path)) {
+    const home = firstAccessiblePath(user);
+    return <Navigate to={home === path ? '/account' : home} replace />;
+  }
   return <Layout>{children}</Layout>;
 }
 

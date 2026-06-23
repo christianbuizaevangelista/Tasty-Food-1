@@ -15,8 +15,9 @@ interface StaffUser {
 }
 
 // Grantable modules (those with a permission key) the current owner's role can reach.
+// Dashboard is excluded — staff only see the modules explicitly assigned to them.
 function permOptions(role: string) {
-  return NAV.filter((n) => n.perm && n.roles.includes(role as any)).map((n) => ({
+  return NAV.filter((n) => n.perm && n.perm !== 'dashboard' && n.roles.includes(role as any)).map((n) => ({
     key: n.perm as string,
     label: n.label,
     icon: n.icon,
@@ -96,11 +97,7 @@ export default function Users() {
           email: editing.email,
           permissions: [...editing.perms],
         });
-        setNotice(
-          data.invite?.sent
-            ? `Invite emailed to ${editing.email}.`
-            : `User created. Email delivery isn't set up yet — copy the invite link below and send it to them.`
-        );
+        setNotice('Staff created — copy the invite link below and send it to them.');
         if (data.inviteLink) setShare({ email: editing.email, link: data.inviteLink });
       }
       setEditing(null);
@@ -109,18 +106,6 @@ export default function Users() {
       setError(apiError(err));
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function resend(u: StaffUser) {
-    setNotice(null);
-    setError(null);
-    try {
-      const { data } = await api.post(`/users/${u.id}/resend-invite`);
-      setNotice(data.invite?.sent ? `Invite re-sent to ${u.email}.` : `Email not set up — copy the invite link below and send it manually.`);
-      if (data.inviteLink) setShare({ email: u.email, link: data.inviteLink });
-    } catch (err) {
-      setError(apiError(err));
     }
   }
 
@@ -154,7 +139,7 @@ export default function Users() {
         subtitle="As owner, add team members and choose exactly which modules each one can access."
         action={
           <button className="btn-primary" onClick={openAdd}>
-            + Invite staff
+            + Add staff
           </button>
         }
       />
@@ -233,10 +218,7 @@ export default function Users() {
                       <div className="flex justify-end gap-2">
                         <button className="btn-ghost text-xs" onClick={() => openEdit(u)}>Edit</button>
                         {u.pending && (
-                          <>
-                            <button className="btn-ghost text-xs" onClick={() => copyInviteLink(u)}>Copy link</button>
-                            <button className="btn-ghost text-xs" onClick={() => resend(u)}>Resend email</button>
-                          </>
+                          <button className="btn-ghost text-xs" onClick={() => copyInviteLink(u)}>Copy invite link</button>
                         )}
                         <button className="text-xs text-red-600 hover:underline" onClick={() => remove(u)}>Delete</button>
                       </div>
@@ -271,7 +253,7 @@ export default function Users() {
                   required
                 />
                 {!editing.id && (
-                  <p className="mt-1 text-xs text-slate-400">We'll email them a link to set their own password.</p>
+                  <p className="mt-1 text-xs text-slate-400">You'll get a link to share so they can set their own password.</p>
                 )}
               </div>
               <div>
@@ -296,7 +278,7 @@ export default function Users() {
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" className="btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
               <button className="btn-primary" disabled={busy}>
-                {busy ? 'Saving…' : editing.id ? 'Save changes' : 'Send invite'}
+                {busy ? 'Saving…' : editing.id ? 'Save changes' : 'Create & get link'}
               </button>
             </div>
           </form>

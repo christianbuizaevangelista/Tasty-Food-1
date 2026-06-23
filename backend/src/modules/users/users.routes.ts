@@ -7,7 +7,6 @@ import { authenticate } from '../../middleware/auth';
 import { requireOwner, requireRole } from '../../middleware/rbac';
 import { badRequest, forbidden, notFound } from '../../lib/errors';
 import { env } from '../../lib/env';
-import { sendInviteEmail } from '../../lib/email';
 
 export const usersRouter = Router();
 usersRouter.use(authenticate);
@@ -72,7 +71,7 @@ const createSchema = z.object({
   permissions: z.array(z.enum(PERMISSIONS)).default([]),
 });
 
-// POST /users — add a staff user and email them an invite to set a password.
+// POST /users — add a staff user; returns an invite link to share with them.
 usersRouter.post(
   '/',
   asyncHandler(async (req, res) => {
@@ -82,7 +81,6 @@ usersRouter.post(
       throw badRequest('A user with that email already exists');
     }
     const token = crypto.randomBytes(24).toString('hex');
-    const owner = await prisma.organization.findUnique({ where: { id: req.auth!.orgId }, select: { name: true } });
     const user = await prisma.user.create({
       data: {
         name: body.name,
@@ -98,10 +96,8 @@ usersRouter.post(
       },
       select: { id: true, name: true, email: true, permissions: true },
     });
-    const link = inviteLink(token);
-    const result = await sendInviteEmail({ to: email, name: body.name, orgName: owner?.name ?? 'Your team', link });
-    // Return the link too so the owner can share it manually if email isn't set up.
-    res.status(201).json({ ...user, pending: true, invite: result, inviteLink: link });
+    // Onboarding is link-based: the owner copies this link and shares it.
+    res.status(201).json({ ...user, pending: true, inviteLink: inviteLink(token) });
   })
 );
 
@@ -128,32 +124,23 @@ usersRouter.patch(
   })
 );
 
-// POST /users/:id/resend-invite — regenerate the invite link and email it.
-usersRouter.post(
-  '/:id/resend-invite',
-  asyncHandler(async (req, res) => {
-    const target = await prisma.user.findUnique({ where: { id: req.params.id }, include: { org: { select: { name: true } } } });
-    if (!target || target.orgId !== req.auth!.orgId) throw notFound('User not found');
-    if (target.passwordHash) throw badRequest('This user has already set their password');
-    const token = crypto.randomBytes(24).toString('hex');
-    await prisma.user.update({
-      where: { id: target.id },
-      data: { inviteToken: token, inviteExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-    });
-    const link = inviteLink(token);
-    const result = await sendInviteEmail({ to: target.email, name: target.name, orgName: target.org.name, link });
-    res.json({ ok: true, invite: result, inviteLink: link });
-  })
-);
-
-// GET /users/:id/invite-link — current invite link for a pending user (to share manually).
+// GET /users/:id/invite-link — current invite link for a pending user (to share).
+// Regenerates the token if one is missing so the owner can always get a fresh link.
 usersRouter.get(
   '/:id/invite-link',
   asyncHandler(async (req, res) => {
     const target = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!target || target.orgId !== req.auth!.orgId) throw notFound('User not found');
-    if (target.passwordHash || !target.inviteToken) throw badRequest('This user has already set their password');
-    res.json({ inviteLink: inviteLink(target.inviteToken) });
+    if (target.passwordHash) throw badRequest('This user has already set their password');
+    let token = target.inviteToken;
+    if (!token) {
+      token = crypto.randomBytes(24).toString('hex');
+      await prisma.user.update({
+        where: { id: target.id },
+        data: { inviteToken: token, inviteExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+      });
+    }
+    res.json({ inviteLink: inviteLink(token) });
   })
 );
 
