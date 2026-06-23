@@ -27,16 +27,22 @@ export default function Crm() {
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Org | null>(null);
   const [editTarget, setEditTarget] = useState<Org | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<Org | null>(null);
 
   const downstream = useMemo(
     () => (data?.orgs ?? []).filter((o) => o.id !== user!.org.id),
     [data, user]
   );
 
+  // Deactivating needs the Principal's password; activating is direct.
   async function toggleActive(org: Org) {
+    if (org.isActive) {
+      setDeactivateTarget(org);
+      return;
+    }
     setActionErr(null);
     try {
-      await api.post(`/orgs/${org.id}/${org.isActive ? 'deactivate' : 'activate'}`);
+      await api.post(`/orgs/${org.id}/activate`);
       refetch();
     } catch (e) {
       setActionErr(apiError(e));
@@ -149,6 +155,17 @@ export default function Crm() {
         />
       )}
 
+      {deactivateTarget && (
+        <DeactivateAccount
+          org={deactivateTarget}
+          onClose={() => setDeactivateTarget(null)}
+          onDone={() => {
+            setDeactivateTarget(null);
+            refetch();
+          }}
+        />
+      )}
+
       {deleteTarget && (
         <DeleteAccount
           org={deleteTarget}
@@ -159,6 +176,52 @@ export default function Crm() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function DeactivateAccount({ org, onClose, onDone }: { org: Org; onClose: () => void; onDone: () => void }) {
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function confirm() {
+    setErr(null);
+    setBusy(true);
+    try {
+      await api.post(`/orgs/${org.id}/deactivate`, { password });
+      onDone();
+    } catch (e) {
+      setErr(apiError(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-1 text-lg font-bold text-red-700">Deactivate account</h2>
+        <p className="mb-3 text-sm text-slate-600">
+          Block <span className="font-semibold">{org.name}</span> from logging in and transacting. You can reactivate it later.
+          Enter your password to confirm.
+        </p>
+        {err && <div className="mb-3"><Alert>{err}</Alert></div>}
+        <label className="label">Your password</label>
+        <input
+          className="input"
+          type="password"
+          autoFocus
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && password && confirm()}
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary bg-red-600 hover:bg-red-700" disabled={busy || !password} onClick={confirm}>
+            {busy ? 'Deactivating…' : 'Deactivate'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

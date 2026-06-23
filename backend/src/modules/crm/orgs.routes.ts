@@ -297,6 +297,14 @@ function setActive(active: boolean) {
     if (!org) throw notFound('Organization not found');
     // Only the Principal may activate/deactivate accounts.
     if (req.auth.role !== 'PRINCIPAL') throw forbidden('Only the Principal can activate or deactivate accounts');
+    // Deactivating is sensitive — confirm with the Principal's own password.
+    if (!active) {
+      const { password } = z.object({ password: z.string().min(1) }).parse(req.body);
+      const me = await prisma.user.findUnique({ where: { id: req.auth.sub } });
+      if (!me || !me.passwordHash || !(await verifyPassword(password, me.passwordHash))) {
+        throw forbidden('Incorrect password');
+      }
+    }
     const updated = await prisma.organization.update({
       where: { id: req.params.id },
       data: { isActive: active },
