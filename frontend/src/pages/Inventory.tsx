@@ -86,7 +86,7 @@ export default function Inventory() {
             {data.items.map((it) => (
               <tr key={it.id} className="border-b border-slate-50">
                 <td className="td font-mono text-xs">{it.sku}</td>
-                <td className="td font-medium">{it.name}</td>
+                <td className="td font-medium">{it.name}{it.size ? <span className="ml-1 text-xs text-slate-400">({it.size})</span> : ''}</td>
                 <td className="td text-right">{peso(it.srp)}</td>
                 <td className="td text-right">
                   {data.costEditable ? (

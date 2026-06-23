@@ -39,6 +39,7 @@ export interface InventoryItem {
   productId: string;
   sku: string;
   name: string;
+  size?: string | null;
   category?: string;
   srp: number;
   cost?: number | null;

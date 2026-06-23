@@ -32,27 +32,34 @@ inventoryRouter.get(
     // from the price they buy at = SRP x (1 - their tier discount).
     const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-    const rows = await prisma.inventory.findMany({
-      where: { orgId },
-      include: { product: true },
-      orderBy: { product: { name: 'asc' } },
+    // Show every active product/size — even those without a stock row yet (qty 0).
+    const products = await prisma.product.findMany({
+      where: { isActive: true },
+      orderBy: [{ name: 'asc' }, { size: 'asc' }],
     });
-    const data = rows.map((r) => {
-      const cost = isPrincipalOrg ? r.cost : r2(r.product.srp * (1 - (org?.discountRate ?? 0)));
+    const invRows = await prisma.inventory.findMany({ where: { orgId } });
+    const invByProduct = new Map(invRows.map((r) => [r.productId, r]));
+
+    const data = products.map((p) => {
+      const inv = invByProduct.get(p.id);
+      const qty = inv?.quantity ?? 0;
+      const reorderLevel = inv?.reorderLevel ?? null;
+      const cost = isPrincipalOrg ? inv?.cost ?? null : r2(p.srp * (1 - (org?.discountRate ?? 0)));
       return {
-        id: r.id,
-        productId: r.productId,
-        sku: r.product.sku,
-        name: r.product.name,
-        category: r.product.category,
-        srp: r.product.srp,
+        id: inv?.id ?? p.id,
+        productId: p.id,
+        sku: p.sku,
+        name: p.name,
+        size: p.size,
+        category: p.category,
+        srp: p.srp,
         cost,
-        quantity: r.quantity,
-        reorderLevel: r.reorderLevel,
-        lowStock: r.reorderLevel != null && r.quantity <= r.reorderLevel,
-        stockValue: r2(r.quantity * r.product.srp),
-        costValue: cost != null ? r2(r.quantity * cost) : null,
-        updatedAt: r.updatedAt,
+        quantity: qty,
+        reorderLevel,
+        lowStock: reorderLevel != null && qty <= reorderLevel,
+        stockValue: r2(qty * p.srp),
+        costValue: cost != null ? r2(qty * cost) : null,
+        updatedAt: inv?.updatedAt ?? null,
       };
     });
     res.json({
