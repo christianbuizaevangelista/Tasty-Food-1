@@ -186,3 +186,97 @@ export function exportPoPdf(po: PoLike) {
 
   doc.save(`${po.number}.pdf`);
 }
+
+interface SaleLike {
+  number: string;
+  channel?: string;
+  distributionType: string;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  discountRate: number;
+  subtotal: number;
+  total: number;
+  savings?: number;
+  createdAt: string;
+  seller: { name: string; type: string };
+  lines: {
+    sku: string;
+    name: string;
+    quantity: number;
+    refundedQuantity?: number;
+    unitSrp: number;
+    unitPrice: number;
+    lineTotal: number;
+  }[];
+}
+
+// Builds and downloads a one-page sales receipt. Principal seller carries the
+// Tasty Food letterhead; distributor sellers use their own name.
+export function exportSaleReceiptPdf(sale: SaleLike) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = 40;
+
+  if (sale.seller.type === 'PRINCIPAL') {
+    doc.setFillColor(232, 82, 29);
+    doc.rect(0, 0, W, 64, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('Juan Palaman', M, 28);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Tasty Food Manufacturing Inc. — Sales Receipt', M, 46);
+  } else {
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(sale.seller.name, M, 34);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Sales Receipt', M, 50);
+    doc.setDrawColor(220, 220, 220);
+    doc.line(M, 60, W - M, 60);
+  }
+
+  doc.setTextColor(30, 30, 30);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text(sale.number, M, 92);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(90, 90, 90);
+  doc.text(`Date: ${new Date(sale.createdAt).toLocaleString('en-PH')}`, M, 110);
+  doc.text(`Channel: ${sale.channel ?? '—'} · ${distLabel(sale.distributionType)}`, M, 124);
+  doc.text(`Customer: ${sale.customerName ?? 'Walk-in'}`, M, 138);
+  if (sale.customerEmail) doc.text(`Email: ${sale.customerEmail}`, M, 152);
+
+  autoTable(doc, {
+    startY: 168,
+    head: [['SKU', 'Product', 'Qty', 'Unit Price', 'Line Total']],
+    body: sale.lines.map((it) => [
+      it.sku,
+      it.name + (it.refundedQuantity ? ` (refunded ${it.refundedQuantity})` : ''),
+      String(it.quantity),
+      money(it.unitPrice),
+      money(it.lineTotal),
+    ]),
+    styles: { fontSize: 9, cellPadding: 5 },
+    headStyles: { fillColor: [232, 82, 29] },
+    columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+  });
+
+  const endY = (doc as any).lastAutoTable.finalY + 20;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(90, 90, 90);
+  doc.text(`Subtotal (SRP): ${money(sale.subtotal)}`, W - M, endY, { align: 'right' });
+  doc.text(`Less discount (${(sale.discountRate * 100).toFixed(0)}%): -${money(sale.savings ?? sale.subtotal - sale.total)}`, W - M, endY + 14, { align: 'right' });
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(30, 30, 30);
+  doc.text(`Grand Total: ${money(sale.total)}`, W - M, endY + 34, { align: 'right' });
+
+  doc.save(`${sale.number}.pdf`);
+}

@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useFetch } from '../lib/useFetch';
 import { PageHeader, Spinner, Alert, Badge } from '../components/ui';
 import { peso } from '../lib/format';
+import { exportPoPdf, exportSaleReceiptPdf } from '../lib/poPdf';
 import { Org, OrgType } from '../types';
 
 const PARENT_OF: Record<string, OrgType> = { PROVINCIAL: 'PRINCIPAL', CITY: 'PROVINCIAL', RESELLER: 'CITY' };
@@ -195,6 +196,7 @@ function EditAccount({
   const [err, setErr] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [detail, setDetail] = useState<{ kind: string; id: string } | null>(null);
 
   const level = LEVEL_OF[org.type];
   const vacant = useFetch<{ vacant: { id: string; name: string; level: string; parentName: string | null }[] }>(
@@ -241,6 +243,7 @@ function EditAccount({
   ].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
 
   return (
+    <>
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold">{form.contactName || form.name}</h2>
@@ -308,7 +311,9 @@ function EditAccount({
                 {history.map((h) => (
                   <div key={`${h.kind}-${h.id}`} className="rounded-lg border border-slate-100 p-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs">{h.number}</span>
+                      <button className="font-mono text-xs text-brand-700 hover:underline" onClick={() => setDetail({ kind: h.kind, id: h.id })}>
+                        {h.number}
+                      </button>
                       <span className="font-semibold">{peso(h.total)}</span>
                     </div>
                     <div className="mt-1 flex items-center justify-between text-xs text-slate-400">
@@ -328,6 +333,90 @@ function EditAccount({
             <button className="btn-primary" disabled={busy || !form.name} onClick={save}>{busy ? 'Saving…' : 'Save changes'}</button>
           )}
         </div>
+      </div>
+    </div>
+    {detail && <OrderDetail kind={detail.kind} id={detail.id} onClose={() => setDetail(null)} />}
+    </>
+  );
+}
+
+function OrderDetail({ kind, id, onClose }: { kind: string; id: string; onClose: () => void }) {
+  const isSale = kind === 'Sale';
+  const { data, loading, error } = useFetch<any>(isSale ? `/sales/${id}` : `/purchase-orders/${id}`);
+
+  const lines: { sku: string; name: string; quantity: number; unitPrice: number; lineTotal: number }[] = data
+    ? isSale
+      ? data.lines
+      : data.items.map((it: any) => ({ sku: it.product.sku, name: it.product.name, quantity: it.quantity, unitPrice: it.unitPrice, lineTotal: it.lineTotal }))
+    : [];
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        {loading ? (
+          <Spinner />
+        ) : error ? (
+          <Alert>{error}</Alert>
+        ) : (
+          <>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-bold">{data.number}</h2>
+                <p className="text-xs text-slate-500">
+                  {isSale ? 'Sales Receipt' : 'Purchase Order'} · {new Date(data.createdAt).toLocaleString()}
+                </p>
+              </div>
+              {data.status && <Badge value={data.status} />}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-600">
+              {isSale ? (
+                <>
+                  <div><div className="font-semibold text-slate-400">SELLER</div>{data.seller?.name}</div>
+                  <div><div className="font-semibold text-slate-400">CUSTOMER</div>{data.customerName ?? 'Walk-in'}{data.customerEmail ? <div className="text-slate-400">{data.customerEmail}</div> : null}</div>
+                </>
+              ) : (
+                <>
+                  <div><div className="font-semibold text-slate-400">SUPPLIER</div>{data.sellerOrg?.name}</div>
+                  <div><div className="font-semibold text-slate-400">CUSTOMER</div>{data.buyerOrg?.name}</div>
+                </>
+              )}
+            </div>
+
+            <table className="mt-4 w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
+                  <th className="td">Product</th>
+                  <th className="td text-right">Qty</th>
+                  <th className="td text-right">Unit</th>
+                  <th className="td text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((l, i) => (
+                  <tr key={i} className="border-b border-slate-50">
+                    <td className="td"><div>{l.name}</div><div className="font-mono text-xs text-slate-400">{l.sku}</div></td>
+                    <td className="td text-right">{l.quantity}</td>
+                    <td className="td text-right">{peso(l.unitPrice)}</td>
+                    <td className="td text-right">{peso(l.lineTotal)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-3 text-right text-sm">
+              <div className="text-slate-500">Subtotal: {peso(data.subtotal)}</div>
+              <div className="text-lg font-bold">{isSale ? 'Grand Total' : 'Total'}: {peso(data.total)}</div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="btn-ghost" onClick={onClose}>Close</button>
+              <button className="btn-primary" onClick={() => (isSale ? exportSaleReceiptPdf(data) : exportPoPdf(data))}>
+                Export PDF
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
