@@ -69,6 +69,9 @@ const buySchema = z.object({
 manaRouter.post(
   '/purchases',
   asyncHandler(async (req, res) => {
+    if (req.auth!.role !== 'PROVINCIAL' && req.auth!.role !== 'CITY') {
+      throw forbidden('Only Provincial and City distributors can buy Mana');
+    }
     const body = buySchema.parse(req.body);
     if (!ALLOWED.includes(body.mimeType.toLowerCase())) {
       throw badRequest('Proof must be an image (PNG/JPG/WEBP) or PDF');

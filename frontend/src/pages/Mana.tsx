@@ -22,6 +22,8 @@ interface Purchase {
 export default function Mana() {
   const { user } = useAuth();
   const isPrincipal = user!.role === 'PRINCIPAL';
+  // Only Provincial and City distributors may buy Mana.
+  const canBuy = user!.role === 'PROVINCIAL' || user!.role === 'CITY';
   const wallet = useFetch<Wallet>('/mana/wallet');
   const purchases = useFetch<{ purchases: Purchase[] }>('/mana/purchases');
 
@@ -105,19 +107,21 @@ export default function Mana() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Buy Mana */}
-        <div className="card">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">Buy Mana</h2>
-          <label className="label">Amount (₱ = Mana)</label>
-          <input className="input mb-3" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 10000" />
-          <label className="label">Proof of payment (image/PDF)</label>
-          <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="mb-3 text-xs" onChange={onFile} />
-          <button className="btn-primary w-full" disabled={busy} onClick={buy}>{busy ? 'Submitting…' : 'Submit request'}</button>
-          <p className="mt-2 text-xs text-slate-400">The Principal approves your payment, then your Mana is credited.</p>
-        </div>
+        {/* Buy Mana — Provincial & City only */}
+        {canBuy && (
+          <div className="card">
+            <h2 className="mb-3 text-sm font-semibold text-slate-700">Buy Mana</h2>
+            <label className="label">Amount (₱ = Mana)</label>
+            <input className="input mb-3" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 10000" />
+            <label className="label">Proof of payment (image/PDF)</label>
+            <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="mb-3 text-xs" onChange={onFile} />
+            <button className="btn-primary w-full" disabled={busy} onClick={buy}>{busy ? 'Submitting…' : 'Submit request'}</button>
+            <p className="mt-2 text-xs text-slate-400">The Principal approves your payment, then your Mana is credited.</p>
+          </div>
+        )}
 
         {/* Transactions */}
-        <div className="card overflow-x-auto lg:col-span-2">
+        <div className={`card overflow-x-auto ${canBuy ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
           <h2 className="mb-3 text-sm font-semibold text-slate-700">Transactions</h2>
           <table className="w-full">
             <thead>
