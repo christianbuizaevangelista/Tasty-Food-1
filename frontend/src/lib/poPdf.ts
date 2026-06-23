@@ -20,6 +20,7 @@ interface PoLike {
   total: number;
   createdAt: string;
   expectedDeliveryDate?: string | null;
+  note?: string | null;
   recipientName?: string | null;
   recipientAddress?: string | null;
   recipientPhone?: string | null;
@@ -120,6 +121,10 @@ export function exportPoPdf(po: PoLike) {
   doc.text(`Order date: ${new Date(po.createdAt).toLocaleString('en-PH')}`, M, y);
   doc.text(`Distribution: ${distLabel(po.distributionType)}`, M, y + 14);
   doc.text(`Buyer discount: ${(po.discountRate * 100).toFixed(0)}%`, M, y + 28);
+  if (po.note) {
+    doc.text(`Note: ${po.note}`, M, y + 42);
+    y += 14;
+  }
   if (po.expectedDeliveryDate) {
     doc.text(
       `Expected delivery: ${new Date(po.expectedDeliveryDate).toLocaleDateString('en-PH')}`,
