@@ -137,6 +137,7 @@ export default function PurchaseOrders() {
 
   const myOrgId = user!.org.id;
   const isPrincipal = user!.role === 'PRINCIPAL';
+  const isReseller = user!.role === 'RESELLER'; // resellers have no downstream POs
   const canCreate = true; // distributors order from supplier; Principal does stock-in
   const orders = data?.orders ?? [];
 
@@ -147,7 +148,10 @@ export default function PurchaseOrders() {
 
   const tabs = [
     { key: 'supplier' as const, label: 'To Supplier', hint: 'Orders you placed with the tier above you.', list: supplierPOs },
-    { key: 'customer' as const, label: 'From Customers', hint: 'Orders your downstream (1–2 tiers below) placed with you.', list: customerPOs },
+    // Resellers have no downstream that orders from them.
+    ...(isReseller
+      ? []
+      : [{ key: 'customer' as const, label: 'From Customers', hint: 'Orders your downstream (1–2 tiers below) placed with you.', list: customerPOs }]),
   ];
 
   const renderTable = (list: PO[], counterpartyHeader: string, emptyText: string) => (
@@ -289,7 +293,7 @@ export default function PurchaseOrders() {
         )}
       </div>
 
-      <div className="mb-1 flex gap-2 border-b border-slate-200">
+      <div className={`mb-1 flex gap-2 border-b border-slate-200 ${tabs.length < 2 ? 'hidden' : ''}`}>
         {tabs.map((t) => (
           <button
             key={t.key}
