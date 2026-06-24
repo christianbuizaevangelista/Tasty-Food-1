@@ -867,7 +867,10 @@ function CreatePO({
               {(['CASH', 'MANA'] as const).map((m) => (
                 <button
                   key={m}
-                  onClick={() => setPaymentMethod(m)}
+                  onClick={() => {
+                    setPaymentMethod(m);
+                    if (m === 'MANA') setProofFile(null); // Mana is pre-paid — no proof needed
+                  }}
                   className={`btn ${paymentMethod === m ? 'bg-brand-500 text-white' : 'border border-slate-300 bg-white'}`}
                 >
                   {m === 'CASH' ? 'Cash' : 'Mana ✨'}
@@ -886,17 +889,13 @@ function CreatePO({
           </div>
         )}
 
-        {/* Proof of payment — available for any supplier order. Required for
-            drop-ship cash; optional otherwise (you can also upload it later). */}
-        {!isStockIn && (
+        {/* Proof of payment — for cash orders only (Mana is pre-paid). Required for
+            drop-ship; optional for Regular (you can also upload it later). */}
+        {!isStockIn && paymentMethod !== 'MANA' && (
           <div className="mb-4">
             <label className="label">
               Proof of Payment (image/PDF){' '}
-              {paymentMethod === 'MANA'
-                ? '(optional — paying via Mana)'
-                : isDropship
-                ? '*'
-                : '(optional)'}
+              {isDropship ? '*' : '(optional)'}
             </label>
             <input
               type="file"
