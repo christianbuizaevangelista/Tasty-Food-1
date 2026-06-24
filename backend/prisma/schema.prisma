@@ -434,6 +434,22 @@ model Territory {
   @@index([level])
 }
 
+// A downloadable material (catalog, price list, poster, etc.) the Principal
+// uploads for distributors to download. File stored inline as base64.
+model Material {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  fileName     String
+  mimeType     String
+  size         Int
+  data         String   // base64 (no data: prefix)
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 // A request to buy Mana credits, with proof of payment, approved by the Principal.
 model ManaPurchase {
   id            String   @id @default(cuid())

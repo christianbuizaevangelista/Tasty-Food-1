@@ -18,6 +18,7 @@ import { territoriesRouter } from './modules/territories/territories.routes';
 import { locationsRouter } from './modules/locations/locations.routes';
 import { manaRouter } from './modules/mana/mana.routes';
 import { usersRouter } from './modules/users/users.routes';
+import { materialsRouter } from './modules/materials/materials.routes';
 
 export function createApp() {
   const app = express();
@@ -43,6 +44,7 @@ export function createApp() {
   app.use('/api/locations', locationsRouter);
   app.use('/api/mana', manaRouter);
   app.use('/api/users', usersRouter);
+  app.use('/api/materials', materialsRouter);
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use(errorHandler);
