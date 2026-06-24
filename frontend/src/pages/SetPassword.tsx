@@ -49,7 +49,7 @@ export default function SetPassword() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-600 to-brand-800 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
         <div className="mb-6 flex items-center gap-3">
-          <img src="/tasty-food-splash.svg" alt="Tasty Food" className="h-12 w-12 object-contain" />
+          <img src="/tasty-food-splash.png" alt="Tasty Food" className="h-12 w-auto object-contain" />
           <div>
             <div className="text-lg font-bold text-slate-900">Tasty Food Manufacturing Inc.</div>
             <div className="text-xs text-slate-500">Distribution Management System (DMS)</div>
