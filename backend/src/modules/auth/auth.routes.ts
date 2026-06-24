@@ -19,7 +19,7 @@ authRouter.post(
     const { email, password } = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
-      include: { org: true },
+      include: { org: { include: { territory: { select: { name: true, level: true } } } } },
     });
     if (!user) throw unauthorized('Invalid email or password');
     if (!user.passwordHash) throw forbidden('Please set your password using your invite link first');
@@ -56,6 +56,7 @@ authRouter.post(
           name: user.org.name,
           type: user.org.type,
           discountRate: user.org.discountRate,
+          territory: user.org.territory,
         },
       },
     });
@@ -68,7 +69,7 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: req.auth!.sub },
-      include: { org: true },
+      include: { org: { include: { territory: { select: { name: true, level: true } } } } },
     });
     if (!user) throw unauthorized();
     res.json({
@@ -84,6 +85,7 @@ authRouter.get(
         type: user.org.type,
         discountRate: user.org.discountRate,
         parentId: user.org.parentId,
+        territory: user.org.territory,
       },
     });
   })

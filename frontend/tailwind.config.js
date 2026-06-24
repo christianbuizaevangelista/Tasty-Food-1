@@ -8,16 +8,16 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: '#fff5ef',
-          100: '#ffe6d6',
-          200: '#ffc7a8',
-          300: '#ffa173',
-          400: '#fb7440',
-          500: '#e8521d', // primary tomato/achuete red-orange
-          600: '#c63f13',
-          700: '#a23214',
-          800: '#7f2b16',
-          900: '#682615',
+          50: '#eef9f1',
+          100: '#d2f0db',
+          200: '#a6e1b9',
+          300: '#6fcd90',
+          400: '#34b46a',
+          500: '#0b9444', // Tasty Food brand green
+          600: '#0a7d3a',
+          700: '#0a632f',
+          800: '#0a4f28',
+          900: '#083f22',
         },
         gold: {
           400: '#f7b733',

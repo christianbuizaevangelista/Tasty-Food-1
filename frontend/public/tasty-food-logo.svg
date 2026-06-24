@@ -1,0 +1,8 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tasty Food">
+  <!-- Three-leaf splash mark (Tasty Food). Tips converge near the bottom center. -->
+  <g transform="translate(0,2)">
+    <path d="M32 52 C 19 41, 19 19, 32 13 C 45 19, 45 41, 32 52 Z" fill="#e02a2a" transform="rotate(-30 32 52)"/>
+    <path d="M32 52 C 19 41, 19 19, 32 13 C 45 19, 45 41, 32 52 Z" fill="#f6a01e" transform="rotate(30 32 52)"/>
+    <path d="M32 52 C 21 42, 21 18, 32 11 C 43 18, 43 42, 32 52 Z" fill="#5cb82b"/>
+  </g>
+</svg>

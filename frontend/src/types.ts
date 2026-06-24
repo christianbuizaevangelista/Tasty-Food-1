@@ -23,6 +23,7 @@ export interface AuthUser {
     type: OrgType;
     discountRate: number;
     parentId?: string | null;
+    territory?: { name: string; level: string } | null;
   };
 }
 

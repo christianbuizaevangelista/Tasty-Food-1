@@ -13,13 +13,13 @@ export default function Layout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside className="flex w-64 flex-col bg-brand-700 text-white">
-        <div className="flex items-center gap-2 px-5 py-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold-500 text-xl font-black text-brand-900">
-            JP
+        <div className="flex items-center gap-3 px-5 py-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white p-1">
+            <img src="/tasty-food-logo.svg" alt="Tasty Food" className="h-full w-full object-contain" />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-bold">Juan Palaman</div>
-            <div className="text-[11px] text-brand-100">Tasty Food Mfg. Inc.</div>
+            <div className="text-sm font-bold">Tasty Food Manufacturing Inc.</div>
+            <div className="text-[11px] text-brand-100">Distribution Management System (DMS)</div>
           </div>
         </div>
 
@@ -44,6 +44,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="border-t border-white/10 px-4 py-4 text-xs text-brand-100">
           <div className="font-semibold text-white">{user.org.name}</div>
           <div>{ROLE_LABEL[user.role]}</div>
+          {user.org.territory && (
+            <div className="mt-0.5 text-brand-200">📍 {user.org.territory.name}</div>
+          )}
         </div>
       </aside>
 
