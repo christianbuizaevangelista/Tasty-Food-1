@@ -25,7 +25,7 @@ dashboardRouter.get(
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    const [sales, ownInventory, activeMembers, pendingApprovals, lastMonthSales, downstreamKpis] =
+    const [sales, ownInventory, activeMembers, pendingApprovals, lastMonthSales, downstreamKpis, myOrg] =
       await Promise.all([
         prisma.sale.findMany({
           where: { sellerOrgId: { in: scope }, createdAt: { gte: from, lte: to } },
@@ -51,6 +51,7 @@ dashboardRouter.get(
           from,
           to
         ),
+        prisma.organization.findUnique({ where: { id: myOrgId }, select: { salesTarget: true } }),
       ]);
 
     const revenue = round2(sales.reduce((s, x) => s + x.total, 0));
@@ -61,6 +62,13 @@ dashboardRouter.get(
     const acquisitionCost = (s: (typeof sales)[number]) =>
       s.sellerOrg.type === 'PRINCIPAL' ? 0 : s.subtotal * (1 - s.sellerOrg.discountRate);
     const grossMargin = round2(sales.reduce((g, x) => g + (x.total - acquisitionCost(x)), 0));
+
+    // The logged-in org's own monthly sales vs its manually-set target.
+    const ownRevenue = round2(
+      sales.filter((s) => s.sellerOrgId === myOrgId).reduce((s, x) => s + x.total, 0)
+    );
+    const monthlyTarget = round2(myOrg?.salesTarget ?? 0);
+    const targetAttainmentPct = monthlyTarget > 0 ? round2((ownRevenue / monthlyTarget) * 100) : null;
     const inventoryValue = round2(
       ownInventory.reduce((s, r) => s + r.quantity * r.product.srp, 0)
     );
@@ -106,6 +114,9 @@ dashboardRouter.get(
       cards: {
         totalRevenue: revenue,
         grossMargin,
+        ownRevenue,
+        monthlyTarget,
+        targetAttainmentPct,
         salesUnits: units,
         inventoryValue,
         pendingApprovals,

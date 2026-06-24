@@ -253,6 +253,7 @@ function EditAccount({
     contactPhone: org.contactPhone ?? '',
     contactEmail: org.contactEmail ?? '',
     address: org.address ?? '',
+    salesTarget: String(org.salesTarget ?? 0),
     territoryId: org.territory?.id ?? '',
   });
   const [busy, setBusy] = useState(false);
@@ -279,6 +280,7 @@ function EditAccount({
         contactPhone: form.contactPhone || undefined,
         contactEmail: form.contactEmail || undefined,
         address: form.address || undefined,
+        salesTarget: form.salesTarget ? Number(form.salesTarget) : 0,
         territoryId: form.territoryId || null,
       });
       onSaved();
@@ -338,6 +340,11 @@ function EditAccount({
             <div>
               <label className="label">Address</label>
               <input className="input" value={form.address} onChange={set('address')} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="label">Monthly sales target (₱)</label>
+              <input className="input" type="number" min={0} value={form.salesTarget} onChange={set('salesTarget')} disabled={!canManage} />
+              <p className="mt-1 text-xs text-slate-400">Shows as % attainment in KPI &amp; Leaderboards and their Dashboard.</p>
             </div>
             <div>
               <label className="label">Territory ({level})</label>
@@ -650,7 +657,7 @@ function Onboard({
             <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
           <div className="col-span-2">
-            <label className="label">Sales target (₱)</label>
+            <label className="label">Monthly sales target (₱)</label>
             <input className="input" type="number" value={form.salesTarget} onChange={(e) => setForm({ ...form, salesTarget: e.target.value })} />
           </div>
 

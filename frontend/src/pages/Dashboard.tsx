@@ -21,6 +21,9 @@ interface DashboardData {
   cards: {
     totalRevenue: number;
     grossMargin: number;
+    ownRevenue: number;
+    monthlyTarget: number;
+    targetAttainmentPct: number | null;
     salesUnits: number;
     inventoryValue: number;
     pendingApprovals: number;
@@ -77,6 +80,20 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-4">
         <KpiCard label="Total Sales" value={peso(c.totalRevenue)} hint="this month" accent="text-brand-600" />
         <KpiCard label="Gross Margin" value={peso(c.grossMargin)} hint="sales − acquisition cost" accent="text-green-600" />
+        <KpiCard
+          label="Monthly Target"
+          value={c.targetAttainmentPct != null ? pct(c.targetAttainmentPct) : '—'}
+          hint={c.monthlyTarget > 0 ? `${peso(c.ownRevenue)} / ${peso(c.monthlyTarget)}` : 'no target set'}
+          accent={
+            c.targetAttainmentPct == null
+              ? 'text-slate-900'
+              : c.targetAttainmentPct >= 100
+              ? 'text-green-600'
+              : c.targetAttainmentPct >= 60
+              ? 'text-amber-600'
+              : 'text-red-600'
+          }
+        />
         <KpiCard label="Units Sold" value={num(c.salesUnits)} hint="this month" />
         <KpiCard label="Inventory Value" value={peso(c.inventoryValue)} hint="your org · current" />
         <KpiCard label="Active Members" value={num(c.activeMembers)} hint="downstream · current" />
