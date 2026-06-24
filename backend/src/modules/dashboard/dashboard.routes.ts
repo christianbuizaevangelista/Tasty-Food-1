@@ -3,7 +3,6 @@ import { prisma } from '../../lib/prisma';
 import { asyncHandler } from '../../lib/http';
 import { authenticate } from '../../middleware/auth';
 import { computeOrgKpis, parseWindow } from '../kpi/kpi.service';
-import { pendingApprovalsCount } from '../crm/approvals.service';
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authenticate);
@@ -25,7 +24,7 @@ dashboardRouter.get(
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    const [sales, ownInventory, activeMembers, pendingApprovals, lastMonthSales, downstreamKpis, myOrg] =
+    const [sales, ownInventory, activeMembers, newMembers, lastMonthSales, downstreamKpis, myOrg] =
       await Promise.all([
         prisma.sale.findMany({
           where: { sellerOrgId: { in: scope }, createdAt: { gte: from, lte: to } },
@@ -38,7 +37,18 @@ dashboardRouter.get(
         prisma.organization.count({
           where: { id: { in: scope }, NOT: { id: myOrgId }, status: 'APPROVED', isActive: true },
         }),
-        pendingApprovalsCount(req.auth!.role, myOrgId),
+        // New members: downstream distributors/resellers added (active) this month.
+        prisma.organization.count({
+          where: {
+            id: { in: scope },
+            NOT: { id: myOrgId },
+            type: { in: ['PROVINCIAL', 'CITY', 'RESELLER'] },
+            status: 'APPROVED',
+            isActive: true,
+            archivedAt: null,
+            createdAt: { gte: thisMonthStart },
+          },
+        }),
         prisma.sale.findMany({
           where: {
             sellerOrgId: { in: scope },
@@ -119,7 +129,7 @@ dashboardRouter.get(
         targetAttainmentPct,
         salesUnits: units,
         inventoryValue,
-        pendingApprovals,
+        newMembers,
         activeMembers,
         lowStockItems: ownInventory.filter((r) => r.reorderLevel != null && r.quantity <= r.reorderLevel).length,
       },

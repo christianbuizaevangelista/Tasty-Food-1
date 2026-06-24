@@ -26,7 +26,7 @@ interface DashboardData {
     targetAttainmentPct: number | null;
     salesUnits: number;
     inventoryValue: number;
-    pendingApprovals: number;
+    newMembers: number;
     activeMembers: number;
     lowStockItems: number;
   };
@@ -98,9 +98,10 @@ export default function Dashboard() {
         <KpiCard label="Inventory Value" value={peso(c.inventoryValue)} hint="your org · current" />
         <KpiCard label="Active Members" value={num(c.activeMembers)} hint="downstream · current" />
         <KpiCard
-          label="Pending Approvals"
-          value={num(c.pendingApprovals)}
-          accent={c.pendingApprovals ? 'text-amber-600' : 'text-slate-900'}
+          label="New Members"
+          value={num(c.newMembers)}
+          hint="activated this month"
+          accent={c.newMembers ? 'text-green-600' : 'text-slate-900'}
         />
         <KpiCard
           label="Low-stock Items"
