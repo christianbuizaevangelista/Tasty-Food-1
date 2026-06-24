@@ -601,7 +601,7 @@ function Onboard({
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-1 text-lg font-bold">Onboard account</h2>
-        <p className="mb-4 text-xs text-slate-500">New accounts start as PENDING and require approval. The admin gets an email invite to set their own password.</p>
+        <p className="mb-4 text-xs text-slate-500">Accounts go live immediately — no approval needed. The admin gets an email invite to set their own password.</p>
         {err && <div className="mb-3"><Alert>{err}</Alert></div>}
 
         {!created && (

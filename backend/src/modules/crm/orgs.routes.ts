@@ -165,7 +165,7 @@ orgsRouter.post(
           type: body.type as OrgType,
           parentId: body.parentId,
           discountRate: TIER_DISCOUNT[body.type as OrgType],
-          status: 'PENDING',
+          status: 'APPROVED', // accounts are live as soon as they're encoded in CRM
           isActive: true,
           contactName: body.contactName,
           contactEmail: body.contactEmail,
@@ -185,14 +185,6 @@ orgsRouter.post(
           isActive: !wantsInvite, // activated once they accept the invite
           inviteToken,
           inviteExpires: wantsInvite ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null,
-        },
-      });
-      await tx.approval.create({
-        data: {
-          type: 'ORG_ONBOARDING',
-          status: 'PENDING',
-          orgId: created.id,
-          requestedById: req.auth!.sub,
         },
       });
       if (body.territoryId) {

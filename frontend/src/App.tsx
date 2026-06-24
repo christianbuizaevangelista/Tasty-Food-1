@@ -14,7 +14,6 @@ import POS from './pages/POS';
 import SalesReport from './pages/SalesReport';
 import Kpi from './pages/Kpi';
 import Crm from './pages/Crm';
-import Approvals from './pages/Approvals';
 import Products from './pages/Products';
 import Account from './pages/Account';
 import Structure from './pages/Structure';
@@ -45,7 +44,6 @@ export default function App() {
       <Route path="/sales" element={<Protected path="/sales"><SalesReport /></Protected>} />
       <Route path="/kpi" element={<Protected path="/kpi"><Kpi /></Protected>} />
       <Route path="/crm" element={<Protected path="/crm"><Crm /></Protected>} />
-      <Route path="/approvals" element={<Protected path="/approvals"><Approvals /></Protected>} />
       <Route path="/products" element={<Protected path="/products"><Products /></Protected>} />
       <Route path="/structure" element={<Protected path="/structure"><Structure /></Protected>} />
       <Route path="/mana" element={<Protected path="/mana"><Mana /></Protected>} />

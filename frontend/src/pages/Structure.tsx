@@ -395,7 +395,7 @@ function AddMember({ modal, onClose, onDone }: { modal: MemberModal; onClose: ()
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-1 text-lg font-bold">Add member — {modal.node.name}</h2>
-        <p className="mb-4 text-xs text-slate-500">New {roleLabel} for this {LEVEL_META[modal.node.level].label}. Starts as PENDING until approved.</p>
+        <p className="mb-4 text-xs text-slate-500">New {roleLabel} for this {LEVEL_META[modal.node.level].label}. Goes live immediately — no approval needed.</p>
         {err && <div className="mb-3"><Alert>{err}</Alert></div>}
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2"><label className="label">Business name</label><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
