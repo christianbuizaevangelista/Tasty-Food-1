@@ -284,11 +284,30 @@ export default function Structure() {
 
       {actionErr && <div className="mb-4"><Alert>{actionErr}</Alert></div>}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard label="Assigned Provinces" value={`${data.summary.total.PROVINCE - data.summary.vacant.PROVINCE} / ${data.summary.total.PROVINCE}`} hint="Provincial Distributor" accent="text-brand-600" />
-        <KpiCard label="Assigned Cities/Municipalities" value={`${data.summary.total.CITY - data.summary.vacant.CITY} / ${data.summary.total.CITY}`} hint="City Distributor" accent="text-brand-600" />
-        <KpiCard label="Assigned Barangays" value={`${data.summary.total.BARANGAY - data.summary.vacant.BARANGAY} / ${data.summary.total.BARANGAY}`} hint="Reseller" accent="text-brand-600" />
-      </div>
+      {(() => {
+        // Show only the levels below the viewer's tier.
+        const role = user!.role;
+        const defs = [
+          { show: role === 'PRINCIPAL', label: 'Assigned Provinces', level: 'PROVINCE', hint: 'Provincial Distributor' },
+          { show: role === 'PRINCIPAL' || role === 'PROVINCIAL', label: 'Assigned Cities/Municipalities', level: 'CITY', hint: 'City Distributor' },
+          { show: ['PRINCIPAL', 'PROVINCIAL', 'CITY'].includes(role), label: 'Assigned Barangays', level: 'BARANGAY', hint: 'Reseller' },
+        ].filter((d) => d.show);
+        if (defs.length === 0) return null;
+        const cols = defs.length === 1 ? 'sm:grid-cols-1' : defs.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3';
+        return (
+          <div className={`mb-6 grid grid-cols-1 gap-4 ${cols}`}>
+            {defs.map((d) => (
+              <KpiCard
+                key={d.level}
+                label={d.label}
+                value={`${data.summary.total[d.level] - data.summary.vacant[d.level]} / ${data.summary.total[d.level]}`}
+                hint={d.hint}
+                accent="text-brand-600"
+              />
+            ))}
+          </div>
+        );
+      })()}
 
       <div className="card">
         {tree.length === 0 ? (
