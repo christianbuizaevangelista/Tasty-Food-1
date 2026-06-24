@@ -93,9 +93,10 @@ function Node({
 
         <div className="flex items-center gap-2">
           {node.level === 'REGION' ? (
-            <span className="text-xs text-slate-400">{countVacant(node)} vacant inside</span>
+            <span className="text-xs text-slate-400">{countVacant(node)} unassigned inside</span>
           ) : node.assignedOrg ? (
             <span className="flex items-center gap-1 text-xs text-slate-600">
+              <span className="badge bg-green-100 text-green-700">ASSIGNED</span>
               <button
                 onClick={() => actions.onDetails(node.assignedOrg!.id)}
                 className="font-semibold text-brand-600 hover:underline"
@@ -110,7 +111,7 @@ function Node({
             </span>
           ) : (
             <span className="flex items-center gap-1">
-              <span className="badge bg-amber-100 text-amber-700">VACANT · {meta.role}</span>
+              <span className="badge bg-amber-100 text-amber-700">UNASSIGNED · {meta.role}</span>
               {actions.canManage && assignable && (
                 <button
                   onClick={() => actions.onAddMember(node, orgParentId)}
@@ -209,7 +210,7 @@ export default function Structure() {
     }
   }
   async function onRemoveMember(node: TNode) {
-    if (!window.confirm(`Remove ${node.assignedOrg?.name} from ${node.name}? It becomes vacant.`)) return;
+    if (!window.confirm(`Remove ${node.assignedOrg?.name} from ${node.name}? It becomes unassigned.`)) return;
     setActionErr(null);
     try {
       await api.post(`/territories/${node.id}/unassign`);
@@ -284,9 +285,9 @@ export default function Structure() {
       {actionErr && <div className="mb-4"><Alert>{actionErr}</Alert></div>}
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard label="Vacant Provinces" value={`${data.summary.vacant.PROVINCE} / ${data.summary.total.PROVINCE}`} hint="Provincial Distributor" accent={data.summary.vacant.PROVINCE ? 'text-amber-600' : 'text-slate-900'} />
-        <KpiCard label="Vacant Cities/Municipalities" value={`${data.summary.vacant.CITY} / ${data.summary.total.CITY}`} hint="City Distributor" accent={data.summary.vacant.CITY ? 'text-amber-600' : 'text-slate-900'} />
-        <KpiCard label="Vacant Barangays" value={`${data.summary.vacant.BARANGAY} / ${data.summary.total.BARANGAY}`} hint="Reseller" accent={data.summary.vacant.BARANGAY ? 'text-amber-600' : 'text-slate-900'} />
+        <KpiCard label="Assigned Provinces" value={`${data.summary.total.PROVINCE - data.summary.vacant.PROVINCE} / ${data.summary.total.PROVINCE}`} hint="Provincial Distributor" accent="text-brand-600" />
+        <KpiCard label="Assigned Cities/Municipalities" value={`${data.summary.total.CITY - data.summary.vacant.CITY} / ${data.summary.total.CITY}`} hint="City Distributor" accent="text-brand-600" />
+        <KpiCard label="Assigned Barangays" value={`${data.summary.total.BARANGAY - data.summary.vacant.BARANGAY} / ${data.summary.total.BARANGAY}`} hint="Reseller" accent="text-brand-600" />
       </div>
 
       <div className="card">
