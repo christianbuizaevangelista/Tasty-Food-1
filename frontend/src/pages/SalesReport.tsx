@@ -20,6 +20,7 @@ interface Sale {
   distributionType: 'TRADE' | 'DROP_SHIP';
   total: number;
   subtotal: number;
+  grossProfit?: number;
   createdAt: string;
   customerName?: string;
   sellerOrg: { id: string; name: string; type: string; discountRate: number };
@@ -35,10 +36,10 @@ interface SalesResponse {
     trade: { count: number; revenue: number };
     dropShip: { count: number; revenue: number };
     byChannel: {
-      PO: { count: number; units: number; revenue: number };
-      POS: { count: number; units: number; revenue: number };
+      PO: { count: number; units: number; revenue: number; grossProfit: number };
+      POS: { count: number; units: number; revenue: number; grossProfit: number };
     };
-    bySku: { sku: string; name: string; units: number; revenue: number }[];
+    bySku: { sku: string; name: string; units: number; revenue: number; grossProfit: number }[];
   };
   sales: Sale[];
 }
@@ -264,6 +265,7 @@ export default function SalesReport() {
                       <th className="th">Channel</th>
                       <th className="th">Type</th>
                       <th className="th text-right">Total</th>
+                      <th className="th text-right">Gross Profit</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -280,10 +282,11 @@ export default function SalesReport() {
                         <td className="td text-xs">{s.channel}</td>
                         <td className="td"><Badge value={s.distributionType} /></td>
                         <td className="td text-right font-semibold">{peso(s.total)}</td>
+                        <td className="td text-right font-semibold text-green-600">{peso(s.grossProfit ?? 0)}</td>
                       </tr>
                     ))}
                     {!data!.sales.length && (
-                      <tr><td className="td text-slate-400" colSpan={7}>No sales match these filters.</td></tr>
+                      <tr><td className="td text-slate-400" colSpan={8}>No sales match these filters.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -316,6 +319,7 @@ export default function SalesReport() {
                     <th className="th">Product</th>
                     <th className="th text-right">Units Sold</th>
                     <th className="th text-right">Revenue</th>
+                    <th className="th text-right">Gross Profit</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -325,10 +329,11 @@ export default function SalesReport() {
                       <td className="td">{r.name}</td>
                       <td className="td text-right">{num(r.units)}</td>
                       <td className="td text-right font-semibold">{peso(r.revenue)}</td>
+                      <td className="td text-right font-semibold text-green-600">{peso(r.grossProfit)}</td>
                     </tr>
                   ))}
                   {!data!.summary.bySku.length && (
-                    <tr><td className="td text-slate-400" colSpan={4}>No sales match these filters.</td></tr>
+                    <tr><td className="td text-slate-400" colSpan={5}>No sales match these filters.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -357,7 +362,7 @@ export default function SalesReport() {
               ] as { k: 'POS' | 'PO'; label: string }[]).map((c) => (
                 <div key={c.k} className="card">
                   <h3 className="mb-3 text-sm font-semibold text-slate-700">{c.label}</h3>
-                  <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
                     <div>
                       <div className="text-xs text-slate-400">Transactions</div>
                       <div className="text-lg font-bold">{num(data!.summary.byChannel[c.k].count)}</div>
@@ -369,6 +374,10 @@ export default function SalesReport() {
                     <div>
                       <div className="text-xs text-slate-400">Revenue</div>
                       <div className="text-lg font-bold text-brand-600">{peso(data!.summary.byChannel[c.k].revenue)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Gross Profit</div>
+                      <div className="text-lg font-bold text-green-600">{peso(data!.summary.byChannel[c.k].grossProfit)}</div>
                     </div>
                   </div>
                 </div>

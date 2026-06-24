@@ -119,28 +119,35 @@ salesRouter.get(
     const sellerCost = (s: (typeof sales)[number]) =>
       s.sellerOrg.type === 'PRINCIPAL' ? 0 : s.subtotal * (1 - s.sellerOrg.discountRate);
 
-    // Per-SKU aggregation.
-    const skuMap = new Map<string, { sku: string; name: string; units: number; revenue: number }>();
+    // Per-line acquisition cost (same basis as sellerCost): SRP × (1 − seller
+    // discount); Principal has no upstream cost.
+    const itemCost = (s: (typeof sales)[number], it: (typeof sales)[number]['items'][number]) =>
+      s.sellerOrg.type === 'PRINCIPAL' ? 0 : it.unitSrp * it.quantity * (1 - s.sellerOrg.discountRate);
+
+    // Per-SKU aggregation (revenue + gross profit).
+    const skuMap = new Map<string, { sku: string; name: string; units: number; revenue: number; cost: number }>();
     for (const s of sales) {
       for (const it of s.items) {
         const key = it.product.sku;
-        const row = skuMap.get(key) ?? { sku: it.product.sku, name: it.product.name, units: 0, revenue: 0 };
+        const row = skuMap.get(key) ?? { sku: it.product.sku, name: it.product.name, units: 0, revenue: 0, cost: 0 };
         row.units += it.quantity;
         row.revenue += it.lineTotal;
+        row.cost += itemCost(s, it);
         skuMap.set(key, row);
       }
     }
     const bySku = [...skuMap.values()]
-      .map((r) => ({ ...r, revenue: round2(r.revenue) }))
+      .map((r) => ({ sku: r.sku, name: r.name, units: r.units, revenue: round2(r.revenue), grossProfit: round2(r.revenue - r.cost) }))
       .sort((a, b) => b.revenue - a.revenue);
 
-    // Per-channel aggregation.
+    // Per-channel aggregation (revenue + gross profit).
     const channelAgg = (ch: 'PO' | 'POS') => {
       const list = sales.filter((s) => s.channel === ch);
       return {
         count: list.length,
         units: list.reduce((u, x) => u + x.items.reduce((q, i) => q + i.quantity, 0), 0),
         revenue: round2(list.reduce((s, x) => s + x.total, 0)),
+        grossProfit: round2(list.reduce((g, x) => g + (x.total - sellerCost(x)), 0)),
       };
     };
 
@@ -167,7 +174,10 @@ salesRouter.get(
       bySku,
     };
 
-    res.json({ summary, sales });
+    // Per-sale gross profit (revenue − acquisition cost) for the sales list.
+    const salesWithProfit = sales.map((s) => ({ ...s, grossProfit: round2(s.total - sellerCost(s)) }));
+
+    res.json({ summary, sales: salesWithProfit });
   })
 );
 
