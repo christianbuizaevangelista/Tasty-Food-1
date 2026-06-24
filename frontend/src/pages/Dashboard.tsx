@@ -20,6 +20,7 @@ import { ROLE_LABEL } from '../lib/nav';
 interface DashboardData {
   cards: {
     totalRevenue: number;
+    grossMargin: number;
     salesUnits: number;
     inventoryValue: number;
     pendingApprovals: number;
@@ -73,8 +74,9 @@ export default function Dashboard() {
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
         {cm.label} · this month
       </div>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-4">
         <KpiCard label="Total Sales" value={peso(c.totalRevenue)} hint="this month" accent="text-brand-600" />
+        <KpiCard label="Gross Margin" value={peso(c.grossMargin)} hint="sales − acquisition cost" accent="text-green-600" />
         <KpiCard label="Units Sold" value={num(c.salesUnits)} hint="this month" />
         <KpiCard label="Inventory Value" value={peso(c.inventoryValue)} hint="your org · current" />
         <KpiCard label="Active Members" value={num(c.activeMembers)} hint="downstream · current" />

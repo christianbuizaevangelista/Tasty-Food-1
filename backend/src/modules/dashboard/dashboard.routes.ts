@@ -29,7 +29,7 @@ dashboardRouter.get(
       await Promise.all([
         prisma.sale.findMany({
           where: { sellerOrgId: { in: scope }, createdAt: { gte: from, lte: to } },
-          include: { items: true },
+          include: { items: true, sellerOrg: { select: { type: true, discountRate: true } } },
         }),
         prisma.inventory.findMany({
           where: { orgId: myOrgId },
@@ -55,6 +55,12 @@ dashboardRouter.get(
 
     const revenue = round2(sales.reduce((s, x) => s + x.total, 0));
     const units = sales.reduce((s, x) => s + x.items.reduce((u, i) => u + i.quantity, 0), 0);
+    // Gross margin = sales minus acquisition cost. Acquisition cost for a seller
+    // is their buy price (SRP minus their own tier discount); the Principal
+    // manufactures, so its cost basis is 0.
+    const acquisitionCost = (s: (typeof sales)[number]) =>
+      s.sellerOrg.type === 'PRINCIPAL' ? 0 : s.subtotal * (1 - s.sellerOrg.discountRate);
+    const grossMargin = round2(sales.reduce((g, x) => g + (x.total - acquisitionCost(x)), 0));
     const inventoryValue = round2(
       ownInventory.reduce((s, r) => s + r.quantity * r.product.srp, 0)
     );
@@ -99,6 +105,7 @@ dashboardRouter.get(
       period: { from, to },
       cards: {
         totalRevenue: revenue,
+        grossMargin,
         salesUnits: units,
         inventoryValue,
         pendingApprovals,
