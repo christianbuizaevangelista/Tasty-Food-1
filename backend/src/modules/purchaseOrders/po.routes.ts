@@ -9,7 +9,7 @@ import { priceLines } from '../../lib/pricing';
 import { poNumber, saleNumber } from '../../lib/numbering';
 import { applyStockMovement, notifyLowStock } from '../inventory/inventory.service';
 import { adjustMana } from '../mana/mana.service';
-import { sendPoSubmittedEmail } from '../../lib/email';
+import { sendPoSubmittedEmail, sendStockRequestEmail } from '../../lib/email';
 
 export const poRouter = Router();
 poRouter.use(authenticate);
@@ -31,6 +31,8 @@ const createSchema = z.object({
   paymentMethod: z.enum(['CASH', 'MANA']).default('CASH'),
   note: z.string().max(500).optional(),
   expectedDeliveryDate: z.coerce.date().optional(),
+  // Optional: for a Principal stock-in, email this production/factory address the request.
+  productionEmail: z.string().email().optional(),
   // Drop-ship delivery details (required when distributionType is DROP_SHIP).
   recipientName: z.string().optional(),
   recipientAddress: z.string().optional(),
@@ -210,7 +212,22 @@ poRouter.post(
       }
       return created;
     });
-    res.status(201).json(po);
+
+    // For a Principal stock-in, optionally email the production team the request.
+    let stockRequest: { sent: boolean; reason?: string } | undefined;
+    if (isStockIn && body.productionEmail) {
+      stockRequest = await sendStockRequestEmail({
+        to: body.productionEmail,
+        poNumber: po.number,
+        items: priced.items.map((it) => {
+          const prod = products.find((x) => x.id === it.productId)!;
+          return { name: prod.name, sku: prod.sku, quantity: it.quantity };
+        }),
+        note: body.note,
+      });
+    }
+
+    res.status(201).json({ ...po, stockRequest });
   })
 );
 

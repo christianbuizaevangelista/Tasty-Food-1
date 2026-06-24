@@ -739,6 +739,7 @@ function CreatePO({
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [recipient, setRecipient] = useState({ name: '', address: '', phone: '', landmark: '' });
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const [productionEmail, setProductionEmail] = useState('');
   const [lines, setLines] = useState<Record<string, number>>({});
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -798,6 +799,7 @@ function CreatePO({
         recipientPhone: isDropship ? recipient.phone : undefined,
         landmark: isDropship ? recipient.landmark || undefined : undefined,
         proofOfPayment,
+        productionEmail: isStockIn && productionEmail.trim() ? productionEmail.trim() : undefined,
         items: items.map(([productId, quantity]) => ({ productId, quantity })),
       });
       onCreated();
@@ -818,6 +820,20 @@ function CreatePO({
             : `Priced at your tier discount of ${(discountRate * 100).toFixed(0)}% off SRP. Ordered from your immediate supplier.`}
         </p>
         {err && <div className="mb-3"><Alert>{err}</Alert></div>}
+
+        {isStockIn && (
+          <div className="mb-4 rounded-lg border border-brand-200 bg-brand-50 p-3">
+            <label className="label">Send request to production (email, optional)</label>
+            <input
+              className="input"
+              type="email"
+              placeholder="e.g. production@juanpalaman.com"
+              value={productionEmail}
+              onChange={(e) => setProductionEmail(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-500">If set, your production team gets emailed this stock request (products + quantities). Leave blank to just record the restock.</p>
+          </div>
+        )}
 
         {!isStockIn && !isReseller && (
           <div className="mb-4">

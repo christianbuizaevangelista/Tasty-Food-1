@@ -227,6 +227,54 @@ export async function sendInviteEmail(p: {
   }
 }
 
+export async function sendStockRequestEmail(p: {
+  to: string;
+  poNumber: string;
+  items: { name: string; sku: string; quantity: number }[];
+  note?: string | null;
+}): Promise<{ sent: boolean; reason?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM || 'Tasty Food <onboarding@resend.dev>';
+  if (!p.to) return { sent: false, reason: 'no recipient email' };
+  if (!apiKey) {
+    console.log(`[email] RESEND_API_KEY not set — stock request ${p.poNumber} for ${p.to}`);
+    return { sent: false, reason: 'RESEND_API_KEY not configured' };
+  }
+  const rows = p.items
+    .map((i) => `<tr><td style="padding:4px 8px">${i.name}</td><td style="padding:4px 8px;color:#888">${i.sku}</td><td style="padding:4px 8px;text-align:right;font-weight:bold">${i.quantity}</td></tr>`)
+    .join('');
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto">
+      <div style="background:#0b9444;color:#fff;padding:14px 18px;border-radius:8px 8px 0 0">
+        <strong style="font-size:16px">Tasty Food Manufacturing Inc.</strong>
+      </div>
+      <div style="border:1px solid #eee;border-top:none;padding:18px;border-radius:0 0 8px 8px">
+        <h2 style="margin:0 0 8px">Production Stock Request — ${p.poNumber}</h2>
+        <p>Please produce / prepare the following quantities:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr style="background:#f4f4f4"><th style="padding:6px 8px;text-align:left">Product</th><th style="padding:6px 8px;text-align:left">SKU</th><th style="padding:6px 8px;text-align:right">Qty</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${p.note ? `<p style="margin-top:12px"><b>Note:</b> ${p.note}</p>` : ''}
+      </div>
+    </div>`;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [p.to], subject: `Stock Request ${p.poNumber}`, html }),
+    });
+    if (!res.ok) {
+      console.error('[email] Resend error', res.status, await res.text());
+      return { sent: false, reason: `Resend responded ${res.status}` };
+    }
+    return { sent: true };
+  } catch (err: any) {
+    console.error('[email] stock request send failed', err?.message);
+    return { sent: false, reason: err?.message ?? 'send failed' };
+  }
+}
+
 export interface PoSubmittedEmail {
   to: string;
   supplierName: string;
