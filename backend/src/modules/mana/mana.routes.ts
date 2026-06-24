@@ -164,3 +164,38 @@ manaRouter.post(
     res.json({ ok: true });
   })
 );
+
+// POST /mana/purchases/:id/reverse — undo an APPROVED purchase (e.g. approved by
+// mistake): debit the credited amount + 0.5% bonus and mark it rejected. Principal only.
+manaRouter.post(
+  '/purchases/:id/reverse',
+  requireRole('PRINCIPAL'),
+  asyncHandler(async (req, res) => {
+    const { note } = z.object({ note: z.string().optional() }).parse(req.body ?? {});
+    const p = await prisma.manaPurchase.findUnique({ where: { id: req.params.id } });
+    if (!p) throw notFound('Request not found');
+    if (p.status !== 'APPROVED') throw conflict('Only an approved request can be reversed');
+    const bonus = Math.round(p.amount * 0.005 * 100) / 100;
+    const total = Math.round((p.amount + bonus) * 100) / 100;
+    await prisma.$transaction(async (tx) => {
+      await adjustMana(tx, {
+        orgId: p.orgId,
+        change: -total,
+        reason: 'MANA_PURCHASE_REVERSED',
+        refType: 'ManaPurchase',
+        refId: p.id,
+        allowNegative: true, // always reverse the credit, even if some was already spent
+      });
+      await tx.manaPurchase.update({
+        where: { id: p.id },
+        data: {
+          status: 'REJECTED',
+          note: note ? `Reversed: ${note}` : 'Reversed (accidental approval)',
+          decidedById: req.auth!.sub,
+          decidedAt: new Date(),
+        },
+      });
+    });
+    res.json({ ok: true, reversed: total });
+  })
+);

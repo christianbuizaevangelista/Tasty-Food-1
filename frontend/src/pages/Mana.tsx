@@ -78,6 +78,17 @@ export default function Mana() {
       setErr(apiError(e));
     }
   }
+  async function reverse(id: string) {
+    if (!confirm('Reverse this approved Mana purchase? The credited Mana (incl. bonus) will be deducted from the requester.')) return;
+    setErr(null);
+    try {
+      await api.post(`/mana/purchases/${id}/reverse`);
+      purchases.refetch();
+      wallet.refetch();
+    } catch (e) {
+      setErr(apiError(e));
+    }
+  }
   async function viewProof(id: string) {
     try {
       const res = await api.get(`/mana/purchases/${id}/proof`, { responseType: 'blob' });
@@ -190,6 +201,8 @@ export default function Mana() {
                         <button onClick={() => decide(p.id, 'REJECTED')} className="rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Reject</button>
                         <button onClick={() => decide(p.id, 'APPROVED')} className="rounded bg-brand-500 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-600">Approve</button>
                       </span>
+                    ) : p.status === 'APPROVED' ? (
+                      <button onClick={() => reverse(p.id)} className="rounded px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50" title="Undo this approval and deduct the credited Mana">Reverse</button>
                     ) : <span className="text-xs text-slate-400">—</span>}
                   </td>
                 )}
