@@ -37,8 +37,8 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-600 to-brand-800 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-100 bg-white p-1">
-            <img src="/tasty-food-logo.png" alt="Tasty Food" className="h-full w-full object-contain" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 p-1.5">
+            <img src="/tasty-food-splash.svg" alt="Tasty Food" className="h-full w-full object-contain" />
           </div>
           <div>
             <div className="text-lg font-bold text-slate-900">Tasty Food Manufacturing Inc.</div>

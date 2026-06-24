@@ -1,0 +1,14 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tasty Food">
+  <!-- Tasty Food three-leaf splash. Teardrops converge near the bottom centre,
+       each with a white outline so it reads on light or dark backgrounds. -->
+  <g stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round">
+    <!-- green leaf (left) -->
+    <path d="M33 55 C 23 47, 23 27, 33 19 C 43 27, 43 47, 33 55 Z" fill="#7cc242" transform="rotate(-52 33 55)"/>
+    <!-- orange leaf (right) -->
+    <path d="M33 55 C 23 47, 23 27, 33 19 C 43 27, 43 47, 33 55 Z" fill="#f6a01e" transform="rotate(50 33 55)"/>
+    <!-- red leaf (centre, tallest) -->
+    <path d="M33 55 C 24 43, 24 17, 33 8 C 42 17, 42 43, 33 55 Z" fill="#e0202a" transform="rotate(-6 33 55)"/>
+  </g>
+  <!-- pink highlight inside the red leaf (right side) -->
+  <path d="M34 51 C 31 42, 31 18, 35 11 C 39 18, 39 42, 34 51 Z" fill="#ec5a86" opacity="0.9" transform="rotate(-6 33 55)"/>
+</svg>
