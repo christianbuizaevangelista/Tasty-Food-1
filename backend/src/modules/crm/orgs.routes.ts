@@ -6,8 +6,9 @@ import { prisma } from '../../lib/prisma';
 import { asyncHandler } from '../../lib/http';
 import { authenticate } from '../../middleware/auth';
 import { assertInScope, requirePermission } from '../../middleware/rbac';
+import { getDescendantOrgIds } from '../../lib/scope';
 import { badRequest, forbidden, notFound, conflict } from '../../lib/errors';
-import { TIER_DISCOUNT, PARENT_TYPE } from '../../lib/pricing';
+import { TIER_DISCOUNT, ALLOWED_PARENTS } from '../../lib/pricing';
 import { hashPassword, verifyPassword } from '../../lib/auth';
 import { canApproveOrgOnboarding } from './approvals.service';
 import { LEVEL_FOR_TYPE } from '../territories/territories.routes';
@@ -123,8 +124,10 @@ orgsRouter.post(
     assertInScope(req, body.parentId);
     const parent = await prisma.organization.findUnique({ where: { id: body.parentId } });
     if (!parent) throw notFound('Parent organization not found');
-    if (PARENT_TYPE[body.type as OrgType] !== parent.type) {
-      throw badRequest(`A ${body.type} must report to a ${PARENT_TYPE[body.type as OrgType]}`);
+    if (!ALLOWED_PARENTS[body.type as OrgType].includes(parent.type)) {
+      throw badRequest(
+        `A ${body.type} must report to a ${ALLOWED_PARENTS[body.type as OrgType].join(' or ')}`
+      );
     }
 
     // Requester must be entitled to onboard this tier (same rule as approval).
@@ -219,6 +222,9 @@ const updateSchema = z.object({
   // Assign/move this account to a geographic territory ('' or null = unassign).
   // Once assigned, the account automatically appears on the Org Structure map.
   territoryId: z.string().nullable().optional(),
+  // Reassign the supplier (parent). A City can report to the Principal (no
+  // Provincial yet) or to a Provincial — its POs always go to whoever is set.
+  parentId: z.string().optional(),
 });
 
 // PATCH /orgs/:id — update CRM details (name, contact, notes, target, territory).
@@ -226,9 +232,23 @@ orgsRouter.patch(
   '/:id',
   asyncHandler(async (req, res) => {
     assertInScope(req, req.params.id);
-    const { territoryId, ...fields } = updateSchema.parse(req.body);
+    const { territoryId, parentId, ...fields } = updateSchema.parse(req.body);
     const target = await prisma.organization.findUnique({ where: { id: req.params.id } });
     if (!target) throw notFound('Organization not found');
+
+    // Handle a supplier (parent) reassignment if requested. Principal only.
+    if (parentId !== undefined && parentId !== target.parentId) {
+      if (req.auth!.role !== 'PRINCIPAL') throw forbidden('Only the Principal can reassign an account’s supplier');
+      const newParent = await prisma.organization.findUnique({ where: { id: parentId } });
+      if (!newParent || newParent.archivedAt) throw notFound('New supplier not found');
+      if (!ALLOWED_PARENTS[target.type].includes(newParent.type)) {
+        throw badRequest(`A ${target.type} can only report to a ${ALLOWED_PARENTS[target.type].join(' or ')}`);
+      }
+      // Prevent cycles: the new parent must not be the org itself or a descendant.
+      const descendants = await getDescendantOrgIds(target.id);
+      if (descendants.includes(parentId)) throw badRequest('Cannot report to itself or one of its own downline');
+      await prisma.organization.update({ where: { id: target.id }, data: { parentId } });
+    }
 
     // Handle a territory (re)assignment if requested.
     if (territoryId !== undefined) {

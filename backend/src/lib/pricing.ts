@@ -16,6 +16,16 @@ export const PARENT_TYPE: Record<OrgType, OrgType | null> = {
   RESELLER: 'CITY',
 };
 
+// Valid parent (supplier) tiers for each org type. A City may report directly to
+// the Principal when no Provincial is assigned yet, then be moved under a
+// Provincial once one exists — its POs always follow whoever its parent is.
+export const ALLOWED_PARENTS: Record<OrgType, OrgType[]> = {
+  PRINCIPAL: [],
+  PROVINCIAL: ['PRINCIPAL'],
+  CITY: ['PROVINCIAL', 'PRINCIPAL'],
+  RESELLER: ['CITY'],
+};
+
 export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }

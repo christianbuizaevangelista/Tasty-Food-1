@@ -9,6 +9,13 @@ import { Org, OrgType } from '../types';
 
 const PARENT_OF: Record<string, OrgType> = { PROVINCIAL: 'PRINCIPAL', CITY: 'PROVINCIAL', RESELLER: 'CITY' };
 const LEVEL_OF: Record<string, string> = { PROVINCIAL: 'PROVINCE', CITY: 'CITY', RESELLER: 'BARANGAY' };
+// A City may report to a Provincial OR directly to the Principal (when no
+// Provincial is assigned yet). Its purchase orders always go to its parent.
+const ALLOWED_PARENT_TYPES: Record<string, OrgType[]> = {
+  PROVINCIAL: ['PRINCIPAL'],
+  CITY: ['PROVINCIAL', 'PRINCIPAL'],
+  RESELLER: ['CITY'],
+};
 
 async function copyToClipboard(text: string) {
   try {
@@ -172,6 +179,7 @@ export default function Crm() {
       {editTarget && (
         <EditAccount
           org={editTarget}
+          orgs={data?.orgs ?? []}
           canManage={user!.role === 'PRINCIPAL'}
           onClose={() => setEditTarget(null)}
           onSaved={() => {
@@ -264,11 +272,13 @@ interface OrderRow {
 
 function EditAccount({
   org,
+  orgs,
   canManage,
   onClose,
   onSaved,
 }: {
   org: Org;
+  orgs: Org[];
   canManage: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -281,7 +291,12 @@ function EditAccount({
     address: org.address ?? '',
     salesTarget: String(org.salesTarget ?? 0),
     territoryId: org.territory?.id ?? '',
+    parentId: org.parent?.id ?? '',
   });
+
+  // A City's supplier can be the Principal (direct) or a Provincial.
+  const canReassign = canManage && org.type === 'CITY';
+  const supplierOptions = orgs.filter((o) => o.type === 'PROVINCIAL' || o.type === 'PRINCIPAL');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
@@ -308,6 +323,7 @@ function EditAccount({
         address: form.address || undefined,
         salesTarget: form.salesTarget ? Number(form.salesTarget) : 0,
         territoryId: form.territoryId || null,
+        ...(canReassign && form.parentId ? { parentId: form.parentId } : {}),
       });
       onSaved();
     } catch (e) {
@@ -367,6 +383,19 @@ function EditAccount({
               <label className="label">Address</label>
               <input className="input" value={form.address} onChange={set('address')} disabled={!canManage} />
             </div>
+            {canReassign && (
+              <div>
+                <label className="label">Supplier (reports to)</label>
+                <select className="input" value={form.parentId} onChange={set('parentId')}>
+                  {supplierOptions.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}{o.type === 'PRINCIPAL' ? ' (direct — no Provincial)' : ` (${o.type})`}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-slate-400">Their purchase orders go to whoever is set here. Switch to a Provincial once one is available.</p>
+              </div>
+            )}
             <div>
               <label className="label">Monthly sales target (₱)</label>
               <input className="input" type="number" min={0} value={form.salesTarget} onChange={set('salesTarget')} disabled={!canManage} />
@@ -599,12 +628,14 @@ function Onboard({
     [type]
   );
 
-  // Valid parents = in-scope orgs of the required parent tier.
-  const parentTier = PARENT_OF[type];
-  const parentOptions =
-    parentTier === 'PRINCIPAL'
-      ? scopeOrgs.filter((o) => o.id === user!.org.id && user!.role === 'PRINCIPAL')
-      : scopeOrgs.filter((o) => o.type === parentTier);
+  // Valid suppliers = in-scope orgs whose tier is an allowed parent for this type.
+  // (A City can pick the Principal directly, or a Provincial.)
+  const allowedParentTypes = ALLOWED_PARENT_TYPES[type] ?? [];
+  const parentOptions = scopeOrgs.filter(
+    (o) =>
+      allowedParentTypes.includes(o.type) &&
+      (o.type !== 'PRINCIPAL' || (o.id === user!.org.id && user!.role === 'PRINCIPAL'))
+  );
 
   async function submit() {
     setErr(null);
@@ -646,10 +677,12 @@ function Onboard({
             </select>
           </div>
           <div>
-            <label className="label">Reports to ({parentTier})</label>
+            <label className="label">Reports to / supplier</label>
             <select className="input" value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })}>
               <option value="">Select…</option>
-              {parentOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              {parentOptions.map((o) => (
+                <option key={o.id} value={o.id}>{o.name}{o.type === 'PRINCIPAL' ? ' (direct — no Provincial)' : ` (${o.type})`}</option>
+              ))}
             </select>
           </div>
           <div className="col-span-2">
