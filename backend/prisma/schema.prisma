@@ -146,6 +146,7 @@ model Organization {
 
   manaPurchases ManaPurchase[]
   manaTxns      ManaTxn[]
+  customers     Customer[] @relation("OrgCustomers")
 
   @@index([parentId])
   @@index([type])
@@ -345,6 +346,9 @@ model Sale {
   distributionType DistributionType @default(TRADE)
 
   customerName     String?  // walk-in / end customer for POS
+  // Optional link to a saved end-customer (captures who a reseller supplies).
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
   discountRate     Float    @default(0)
   subtotal         Float    @default(0)
   total            Float    @default(0)
@@ -432,6 +436,23 @@ model Territory {
 
   @@index([parentId])
   @@index([level])
+}
+
+// An end-customer that a distributor (usually a Reseller) supplies. Captures
+// the last-mile customer database. Visible up the chain for the owner's parents.
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String?
+  address     String?
+  note        String?
+  ownerOrgId  String   // the org that serves this customer (e.g. the Reseller)
+  ownerOrg    Organization @relation("OrgCustomers", fields: [ownerOrgId], references: [id])
+  createdById String
+  createdAt   DateTime @default(now())
+  sales       Sale[]
+
+  @@index([ownerOrgId])
 }
 
 // A downloadable material (catalog, price list, poster, etc.) the Principal

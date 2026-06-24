@@ -27,6 +27,17 @@ export interface AuthUser {
   };
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  note?: string | null;
+  owner?: { id: string; name: string; type: OrgType };
+  salesCount?: number;
+  createdAt?: string;
+}
+
 export interface Product {
   id: string;
   sku: string;

@@ -19,6 +19,8 @@ import Account from './pages/Account';
 import Structure from './pages/Structure';
 import Mana from './pages/Mana';
 import Materials from './pages/Materials';
+import Customers from './pages/Customers';
+import ResellerSale from './pages/ResellerSale';
 import Users from './pages/Users';
 
 // Guards a route by the user's role + permissions (path matched against NAV).
@@ -49,6 +51,8 @@ export default function App() {
       <Route path="/structure" element={<Protected path="/structure"><Structure /></Protected>} />
       <Route path="/mana" element={<Protected path="/mana"><Mana /></Protected>} />
       <Route path="/materials" element={<Protected path="/materials"><Materials /></Protected>} />
+      <Route path="/sell" element={<Protected path="/sell"><ResellerSale /></Protected>} />
+      <Route path="/customers" element={<Protected path="/customers"><Customers /></Protected>} />
       <Route path="/users" element={<Protected path="/users"><Users /></Protected>} />
       <Route path="/account" element={<Protected path="/account"><Account /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />

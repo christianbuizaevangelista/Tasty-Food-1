@@ -18,6 +18,8 @@ const saleSchema = z.object({
   customerName: z.string().optional(),
   // Optional known downstream account; its tier discount is applied.
   buyerOrgId: z.string().optional(),
+  // Optional saved end-customer (Reseller's customer database).
+  customerId: z.string().optional(),
   // Explicit discount override (0..1). Falls back to buyer org's rate, else 0 (SRP).
   discountRate: z.number().min(0).max(1).optional(),
   items: z
@@ -46,6 +48,14 @@ posRouter.post(
         throw badRequest('You can only sell to accounts within your downstream network');
       }
       discountRate = buyer.discountRate; // tier discount: PROVINCIAL 20%, CITY 15%, RESELLER 8%
+    }
+
+    // Optional saved end-customer (Reseller's customer database).
+    let customerName = body.customerName;
+    if (body.customerId) {
+      const cust = await prisma.customer.findUnique({ where: { id: body.customerId } });
+      if (!cust || cust.ownerOrgId !== seller.id) throw badRequest('Customer not found in your records');
+      customerName = customerName || cust.name;
     }
 
     const products = await prisma.product.findMany({
@@ -88,7 +98,8 @@ posRouter.post(
             buyerOrgId: body.buyerOrgId,
             channel: 'POS',
             distributionType: body.distributionType,
-            customerName: body.customerName,
+            customerName,
+            customerId: body.customerId ?? null,
             discountRate,
             subtotal: priced.subtotal,
             total: priced.total,

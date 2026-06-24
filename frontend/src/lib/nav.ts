@@ -10,22 +10,27 @@ export interface NavItem {
 }
 
 const ALL: Role[] = ['PRINCIPAL', 'PROVINCIAL', 'CITY', 'RESELLER'];
+// Resellers get a deliberately tiny, no-training experience (Record Sale +
+// Customers only); the heavier modules are hidden from them.
+const UP: Role[] = ['PRINCIPAL', 'PROVINCIAL', 'CITY'];
 
 // Sidebar modules, filtered by role + permission. Order reflects UX priority.
 // Ordered by how often each is used / how important it is: daily transactional
 // tools first, then monitoring, then management, then setup/admin, account last.
 export const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: '📊', roles: ALL, perm: 'dashboard' },
-  { to: '/pos', label: 'Point of Sale', icon: '🛒', roles: ALL, perm: 'pos' },
-  { to: '/purchase-orders', label: 'Purchase Orders', icon: '🧾', roles: ALL, perm: 'purchase-orders' },
-  { to: '/inventory', label: 'Inventory', icon: '📦', roles: ALL, perm: 'inventory' },
-  { to: '/sales', label: 'Sales Report', icon: '📈', roles: ALL, perm: 'sales' },
-  { to: '/mana', label: 'Mana Wallet', icon: '✨', roles: ALL, perm: 'mana' },
-  { to: '/crm', label: 'CRM / Accounts', icon: '🤝', roles: ['PRINCIPAL', 'PROVINCIAL', 'CITY'], perm: 'crm' },
-  { to: '/kpi', label: 'KPI & Leaderboards', icon: '🏆', roles: ['PRINCIPAL', 'PROVINCIAL', 'CITY'], perm: 'kpi' },
-  { to: '/structure', label: 'Org Structure', icon: '🗺️', roles: ALL, perm: 'structure' },
+  { to: '/', label: 'Dashboard', icon: '📊', roles: UP, perm: 'dashboard' },
+  { to: '/sell', label: 'Record Sale', icon: '🧾', roles: ['RESELLER'], perm: 'pos' },
+  { to: '/customers', label: 'Customers', icon: '👥', roles: ALL, perm: 'customers' },
+  { to: '/pos', label: 'Point of Sale', icon: '🛒', roles: UP, perm: 'pos' },
+  { to: '/purchase-orders', label: 'Purchase Orders', icon: '🧾', roles: UP, perm: 'purchase-orders' },
+  { to: '/inventory', label: 'Inventory', icon: '📦', roles: UP, perm: 'inventory' },
+  { to: '/sales', label: 'Sales Report', icon: '📈', roles: UP, perm: 'sales' },
+  { to: '/mana', label: 'Mana Wallet', icon: '✨', roles: UP, perm: 'mana' },
+  { to: '/crm', label: 'CRM / Accounts', icon: '🤝', roles: UP, perm: 'crm' },
+  { to: '/kpi', label: 'KPI & Leaderboards', icon: '🏆', roles: UP, perm: 'kpi' },
+  { to: '/structure', label: 'Org Structure', icon: '🗺️', roles: UP, perm: 'structure' },
   { to: '/products', label: 'Products', icon: '🏷️', roles: ['PRINCIPAL'], perm: 'products' },
-  { to: '/materials', label: 'Downloadables', icon: '📥', roles: ALL, perm: 'materials' },
+  { to: '/materials', label: 'Downloadables', icon: '📥', roles: UP, perm: 'materials' },
   { to: '/users', label: 'Users & Roles', icon: '🔑', roles: ['PRINCIPAL'], ownerOnly: true },
   { to: '/account', label: 'Account Settings', icon: '👤', roles: ALL },
 ];
