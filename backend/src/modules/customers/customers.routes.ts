@@ -31,6 +31,7 @@ customersRouter.get(
       .map((c) => ({
         id: c.id,
         name: c.name,
+        type: c.type,
         phone: c.phone,
         address: c.address,
         note: c.note,
@@ -63,6 +64,7 @@ customersRouter.get(
     res.json({
       id: c.id,
       name: c.name,
+      type: c.type,
       phone: c.phone,
       address: c.address,
       note: c.note,
@@ -81,6 +83,7 @@ customersRouter.get(
 
 const upsertSchema = z.object({
   name: z.string().min(1).max(160),
+  type: z.enum(['Sub-Reseller', 'Retail', 'Bakery', 'Consumer']).optional(),
   phone: z.string().max(40).optional(),
   address: z.string().max(300).optional(),
   note: z.string().max(500).optional(),
@@ -94,13 +97,14 @@ customersRouter.post(
     const c = await prisma.customer.create({
       data: {
         name: body.name,
+        type: body.type ?? null,
         phone: body.phone ?? null,
         address: body.address ?? null,
         note: body.note ?? null,
         ownerOrgId: req.auth!.orgId,
         createdById: req.auth!.sub,
       },
-      select: { id: true, name: true, phone: true, address: true, note: true },
+      select: { id: true, name: true, type: true, phone: true, address: true, note: true },
     });
     res.status(201).json(c);
   })
@@ -118,11 +122,12 @@ customersRouter.patch(
       where: { id: req.params.id },
       data: {
         ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.type !== undefined ? { type: body.type || null } : {}),
         ...(body.phone !== undefined ? { phone: body.phone || null } : {}),
         ...(body.address !== undefined ? { address: body.address || null } : {}),
         ...(body.note !== undefined ? { note: body.note || null } : {}),
       },
-      select: { id: true, name: true, phone: true, address: true, note: true },
+      select: { id: true, name: true, type: true, phone: true, address: true, note: true },
     });
     res.json(c);
   })

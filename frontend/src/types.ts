@@ -30,6 +30,7 @@ export interface AuthUser {
 export interface Customer {
   id: string;
   name: string;
+  type?: string | null;
   phone?: string | null;
   address?: string | null;
   note?: string | null;

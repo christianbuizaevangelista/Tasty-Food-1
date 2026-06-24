@@ -65,6 +65,7 @@ export default function Customers() {
             <thead>
               <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
                 <th className="td">Name</th>
+                <th className="td">Type</th>
                 <th className="td">Cellphone</th>
                 <th className="td">Address</th>
                 <th className="td">Supplier</th>
@@ -81,6 +82,7 @@ export default function Customers() {
                       {c.name}
                     </button>
                   </td>
+                  <td className="td">{c.type ? <span className="badge bg-sky-100 text-sky-700">{c.type}</span> : <span className="text-slate-400">—</span>}</td>
                   <td className="td">{c.phone || '—'}</td>
                   <td className="td text-slate-500">{c.address || '—'}</td>
                   <td className="td text-xs text-slate-400">{c.owner?.name}</td>
@@ -117,6 +119,7 @@ export default function Customers() {
 interface CustomerDetailData {
   id: string;
   name: string;
+  type?: string | null;
   phone?: string | null;
   address?: string | null;
   owner?: { name: string };
@@ -135,7 +138,10 @@ function CustomerDetail({ id, onClose }: { id: string; onClose: () => void }) {
           <Alert>{error || 'Not found'}</Alert>
         ) : (
           <>
-            <h2 className="text-lg font-bold">{data.name}</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold">
+              {data.name}
+              {data.type && <span className="badge bg-sky-100 text-sky-700">{data.type}</span>}
+            </h2>
             <p className="text-xs text-slate-500">
               {[data.phone, data.address].filter(Boolean).join(' · ') || '—'}
               {data.owner ? ` · Supplier: ${data.owner.name}` : ''}
@@ -187,6 +193,7 @@ export function CustomerForm({
 }) {
   const [form, setForm] = useState({
     name: customer.name ?? '',
+    type: customer.type ?? '',
     phone: customer.phone ?? '',
     address: customer.address ?? '',
     note: customer.note ?? '',
@@ -201,7 +208,7 @@ export function CustomerForm({
     setBusy(true);
     setErr(null);
     try {
-      const payload = { name: form.name.trim(), phone: form.phone.trim() || undefined, address: form.address.trim() || undefined, note: form.note.trim() || undefined };
+      const payload = { name: form.name.trim(), type: form.type || undefined, phone: form.phone.trim() || undefined, address: form.address.trim() || undefined, note: form.note.trim() || undefined };
       const { data } = editingId
         ? await api.patch(`/customers/${editingId}`, payload)
         : await api.post('/customers', payload);
@@ -221,6 +228,16 @@ export function CustomerForm({
           <div>
             <label className="label">Name *</label>
             <input className="input" autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Customer type</label>
+            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+              <option value="">— Select type —</option>
+              <option value="Sub-Reseller">Sub-Reseller</option>
+              <option value="Retail">Retail</option>
+              <option value="Bakery">Bakery</option>
+              <option value="Consumer">Consumer</option>
+            </select>
           </div>
           <div>
             <label className="label">Cellphone number</label>

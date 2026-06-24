@@ -443,6 +443,7 @@ model Territory {
 model Customer {
   id          String   @id @default(cuid())
   name        String
+  type        String?  // Sub-Reseller | Retail | Bakery | Consumer
   phone       String?
   address     String?
   note        String?
