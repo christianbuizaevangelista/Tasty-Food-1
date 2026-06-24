@@ -20,7 +20,6 @@ const UP: Role[] = ['PRINCIPAL', 'PROVINCIAL', 'CITY'];
 export const NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: '📊', roles: UP, perm: 'dashboard' },
   { to: '/sell', label: 'Record Sale', icon: '🧾', roles: ['RESELLER'], perm: 'pos' },
-  { to: '/customers', label: 'Customers', icon: '👥', roles: ALL, perm: 'customers' },
   { to: '/pos', label: 'Point of Sale', icon: '🛒', roles: UP, perm: 'pos' },
   { to: '/purchase-orders', label: 'Purchase Orders', icon: '🧾', roles: UP, perm: 'purchase-orders' },
   { to: '/inventory', label: 'Inventory', icon: '📦', roles: UP, perm: 'inventory' },
@@ -29,6 +28,7 @@ export const NAV: NavItem[] = [
   { to: '/crm', label: 'Distribution Network', icon: '🤝', roles: UP, perm: 'crm' },
   { to: '/kpi', label: 'KPI & Leaderboards', icon: '🏆', roles: UP, perm: 'kpi' },
   { to: '/structure', label: 'Org Structure', icon: '🗺️', roles: UP, perm: 'structure' },
+  { to: '/customers', label: 'Customers', icon: '👥', roles: ALL, perm: 'customers' },
   { to: '/products', label: 'Products', icon: '🏷️', roles: ['PRINCIPAL'], perm: 'products' },
   { to: '/materials', label: 'Downloadables', icon: '📥', roles: UP, perm: 'materials' },
   { to: '/users', label: 'Users & Roles', icon: '🔑', roles: ['PRINCIPAL'], ownerOnly: true },
