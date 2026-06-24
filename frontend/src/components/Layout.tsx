@@ -12,12 +12,14 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r border-slate-200 bg-white text-slate-700">
+      <aside className="flex w-64 flex-col bg-brand-700 text-white">
         <div className="flex items-center gap-3 px-5 py-5">
-          <img src="/tasty-food-splash.svg" alt="Tasty Food" className="h-11 w-11 shrink-0 object-contain" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white p-1">
+            <img src="/tasty-food-splash.svg" alt="Tasty Food" className="h-full w-full object-contain" />
+          </div>
           <div className="leading-tight">
-            <div className="text-sm font-bold text-slate-900">Tasty Food Manufacturing Inc.</div>
-            <div className="text-[11px] text-slate-400">Distribution Management System (DMS)</div>
+            <div className="text-sm font-bold">Tasty Food Manufacturing Inc.</div>
+            <div className="text-[11px] text-brand-100">Distribution Management System (DMS)</div>
           </div>
         </div>
 
@@ -29,7 +31,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 key={item.to}
                 to={item.to}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  active ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-100'
+                  active ? 'bg-white/15 text-white' : 'text-brand-100 hover:bg-white/10'
                 }`}
               >
                 <span>{item.icon}</span>
@@ -39,11 +41,11 @@ export default function Layout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-slate-200 px-4 py-4 text-xs text-slate-500">
-          <div className="font-semibold text-slate-900">{user.org.name}</div>
+        <div className="border-t border-white/10 px-4 py-4 text-xs text-brand-100">
+          <div className="font-semibold text-white">{user.org.name}</div>
           <div>{ROLE_LABEL[user.role]}</div>
           {user.org.territory && (
-            <div className="mt-0.5 text-brand-600">📍 {user.org.territory.name}</div>
+            <div className="mt-0.5 text-brand-200">📍 {user.org.territory.name}</div>
           )}
         </div>
       </aside>
