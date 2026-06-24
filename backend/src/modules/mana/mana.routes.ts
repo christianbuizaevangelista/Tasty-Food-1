@@ -141,6 +141,7 @@ manaRouter.post(
         data: { status: body.status, note: body.note, decidedById: req.auth!.sub, decidedAt: new Date() },
       });
       if (body.status === 'APPROVED') {
+        // Credit the purchased amount plus a 0.5% bonus (recorded separately).
         await adjustMana(tx, {
           orgId: p.orgId,
           change: p.amount,
@@ -148,6 +149,16 @@ manaRouter.post(
           refType: 'ManaPurchase',
           refId: p.id,
         });
+        const bonus = Math.round(p.amount * 0.005 * 100) / 100;
+        if (bonus > 0) {
+          await adjustMana(tx, {
+            orgId: p.orgId,
+            change: bonus,
+            reason: 'MANA_PURCHASE_BONUS',
+            refType: 'ManaPurchase',
+            refId: p.id,
+          });
+        }
       }
     });
     res.json({ ok: true });

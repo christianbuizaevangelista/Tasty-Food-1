@@ -112,11 +112,16 @@ export default function Mana() {
           <div className="card">
             <h2 className="mb-3 text-sm font-semibold text-slate-700">Buy Mana</h2>
             <label className="label">Amount (₱ = Mana)</label>
-            <input className="input mb-3" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 10000" />
+            <input className="input mb-1" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 10000" />
+            <p className="mb-3 text-xs text-green-600">
+              {Number(amount) > 0
+                ? `You'll receive ${num(Math.round(Number(amount) * 1.005 * 100) / 100)} ✨ (includes +0.5% bonus)`
+                : 'Get a +0.5% bonus on every Mana purchase.'}
+            </p>
             <label className="label">Proof of payment (image/PDF)</label>
             <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="mb-3 text-xs" onChange={onFile} />
             <button className="btn-primary w-full" disabled={busy} onClick={buy}>{busy ? 'Submitting…' : 'Submit request'}</button>
-            <p className="mt-2 text-xs text-slate-400">The Principal approves your payment, then your Mana is credited.</p>
+            <p className="mt-2 text-xs text-slate-400">The Principal approves your payment, then your Mana (plus 0.5% bonus) is credited.</p>
           </div>
         )}
 
